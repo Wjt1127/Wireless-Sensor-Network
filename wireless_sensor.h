@@ -22,7 +22,6 @@ typedef struct {
     int neighbor_avail_ports[4]; // the available port num of neighbor ports
 
     double mpi_time;        // when the event occured
-    
 } EVNodeMessage;
 
 struct TimeStamp
@@ -61,6 +60,8 @@ private:
     int y;
     int ports_num;
     std::deque<AvailabilityLog> avail_table;
+    MPI_Comm EV_Comm;
+    
 
     void send_alert_to_base(int base_station_rank, char *alert_msg);
     void get_message_from_neighbor(MPI_Comm EV_Comm, EVNodeMessage *msg);

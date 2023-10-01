@@ -12,6 +12,15 @@
 WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, std::string &source):
     row(r_), col(c_), x(x_), y(y_)
 {
+    int grid_dimensions = 2;
+    int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
+    MPI_Comm grid_comm;
+    int periods[2] = {0, 0};
+    int reorder = 1;
+    MPI_Request reqs[8]; 
+
+    MPI_Cart_create(EV_Comm, grid_dimensions, dimension_sizes, periods, reorder, &grid_comm);
+    
     std::thread report_thread(&WirelessSensor::report_availability, this, source);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
     std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this);
@@ -53,9 +62,10 @@ void WirelessSensor::report_availability(std::string avail_source)
 */
 void WirelessSensor::prompt_availability()
 {
+
     while (!avail_table.empty())
     {
-        if (avail_table.back().availability == ports_num)
+        if (avail_table.back().availability == 0)
         {
             
         }
@@ -104,8 +114,6 @@ void WirelessSensor::get_message_from_neighbor(MPI_Comm EV_Comm, EVNodeMessage *
     int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
     MPI_Comm grid_comm;
     int periods[2] = {0, 0};
-    int remainX[2] = {1, 0};  // move in X
-    int remainY[2] = {0, 1};  // move in Y
     int reorder = 1;
     MPI_Request reqs[8]; 
 

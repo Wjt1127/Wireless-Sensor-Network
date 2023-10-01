@@ -15,14 +15,21 @@
 class BStation {
 public:
     BStation() = default;
-
+    BStation(int _listen_interval, int _terminate);
     ~BStation();
 
-    void process_EVNode_message(EVNodeMessage* g_msg);
-
 private:
-    FILE* log_fp;   
+    int Base_station_rank;
+    FILE* log_fp;
+    int terminate;
+    unsigned int listen_interval;
+
     const char* LOG_FILE = "base_station.log";
+
+
+    void process_EVNode_message(EVNodeMessage* msg);
+    void listen_report_from_WSN();
+    void send_terminal_signal();
 };
 
 

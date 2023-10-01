@@ -1,5 +1,7 @@
 #include <mpi.h>
+
 #include "mpi_helper.h"
+#include "wireless_sensor.h"
 
 /* send to single node */
 void MPIHelper::send_method(const void *buf, int count, MPI_Datatype datatype, int dest_rank, MPI_Comm comm) {
@@ -17,3 +19,27 @@ void MPIHelper::recv_method(int neighbor_ranks[4], unsigned int available_port, 
         }
     }
 }
+
+/**
+ * create MPI datatype for EVNodeMessage
+*/
+void MPIHelper::create_EV_message_type(MPI_Datatype *EV_message_type) {
+    int num_of_fields = 14;
+    int block_lengths[14] = {1, 1, 4, 4 * 2, 4};
+    MPI_Aint displacements[14];
+    displacements[0] = offsetof(EVNodeMessage, rank);
+    displacements[1] = offsetof(EVNodeMessage, matching_neighbours);
+    displacements[2] = offsetof(EVNodeMessage, neighbor_ranks);
+    displacements[3] = offsetof(EVNodeMessage, neighbor_coords);
+
+    /* wait for complete */
+    
+    MPI_Datatype datatypes[14] = {
+        MPI_INT,           MPI_INT,           MPI_INT,
+        MPI_INT,           MPI_INT};
+    MPI_Type_create_struct(num_of_fields, block_lengths, displacements,
+                           datatypes, EV_message_type);
+    MPI_Type_commit(EV_message_type);
+}
+
+
