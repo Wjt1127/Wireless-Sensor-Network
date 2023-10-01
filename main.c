@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <iostream>
+#include <mpi_proto.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -25,6 +26,7 @@ int main(int argc, char *argv[]) {
         // start a sensor
         WirelessSensor sensor(row, col, world_rank / col, world_rank % col);
     }
-
+    
+    MPI_Finalize();
     return 0;
 }

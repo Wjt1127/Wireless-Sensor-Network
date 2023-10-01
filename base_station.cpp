@@ -20,9 +20,7 @@ void BStation::process_EVNode_message(EVNodeMessage* g_msg) {
 
     // print details of neighbours to the reporting station
     for (int i = 0; i < g_msg->matching_neighbours; ++i) {
-        len += snprintf(log_msg + len, sizeof(log_msg) - len,
-                      "%d\n",
-                      g_msg->neighbour_ranks[i]);
+        len += snprintf(log_msg + len, sizeof(log_msg) - len, "%d\n", g_msg->neighbor_ranks[i]);
     }
 
     len += snprintf(log_msg + len, sizeof(log_msg) - len, "--------------------\n");
