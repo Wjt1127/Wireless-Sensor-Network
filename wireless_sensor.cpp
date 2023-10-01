@@ -78,14 +78,15 @@ void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
  * determine if a alert report should be prompted to the base station, 
  * if there are available ports then they are stored in the parameter avail_neighbor.
 */
-bool WirelessSensor::prompt_or_not(EVNodeMessage* msg, int num_of_neighbor, int avail_neighbor[], int num_of_avail_neighbor) {
+bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int num_of_avail_neighbor) {
     bool isprompt = true;
     num_of_avail_neighbor = 0;
 
-    for (int i = 0; i < num_of_neighbor; i++) {
+    for (int i = 0; i < 4; i++) {
+        if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
         if (msg->neighbor_avail_ports[i] < ports_num) {
             isprompt = false;
-            avail_neighbor[num_of_neighbor++] = msg->neighbor_ranks[i];
+            avail_neighbor[num_of_avail_neighbor++] = msg->neighbor_ranks[i];
         }
     }
 
@@ -129,13 +130,8 @@ void WirelessSensor::get_message_from_neighbor(MPI_Comm EV_Comm, EVNodeMessage *
 
 }
 
-int WirelessSensor::send_alert_to_base(int base_station_rank, char* alert_msg) 
+void WirelessSensor::send_alert_to_base(int base_station_rank, char* alert_msg) 
 {   
     // single to single communication
     MPI_Send(alert_msg, sizeof(alert_msg), MPI_CHAR, base_station_rank, 0, MPI_COMM_WORLD);
-
-
-
-
-    return SEND_ALERT_SUCCESS;
 }
