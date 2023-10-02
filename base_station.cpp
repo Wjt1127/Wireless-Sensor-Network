@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <mpi.h>
+#include <mpi_proto.h>
 #include <string>
 #include <thread>
 #include <time.h>
@@ -30,35 +31,13 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     std::thread listen_thread(&BStation::listen_report_from_WSN, this, &alert_events);
     std::thread timer_thread(&BStation::iteration_recorder, this);
 
-    listen_thread.join();
     timer_thread.join();
+    listen_thread.join();
+
 }
 
 BStation::~BStation() {
     if (log_fp != NULL) fclose(log_fp);
-    MPI_Type_free(&EV_msg_type);
-}
-
-/**
- * whole Processing flow of Base Station
-*/
-void BStation::BStation_run() {
-    // listen report from WSN until the number of iterations has been reached
-    int alert_events = 0;
-    listen_report_from_WSN(&alert_events);
-
-    // send ternimate signal to all EVNode
-    for (int dest_rank = 0; dest_rank < Base_station_rank; dest_rank++)
-        send_ternimate_signal(dest_rank);
-
-    if (log_fp != NULL) {
-        printf("\n%d iterations reached, terminating\n", iterations_num);
-    } 
-    else {
-        printf("\nLog file cannot be detected, terminating\n");
-    }
-
-    fclose(log_fp);
 }
 
 void BStation::iteration_recorder() {
@@ -100,6 +79,22 @@ void BStation::listen_report_from_WSN(int *alert_events) {
             MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &messages_available, MPI_STATUS_IGNORE);
         }
     }
+
+    // send ternimate signal to all EVNode
+    for (int dest_rank = 0; dest_rank < Base_station_rank; dest_rank++)
+        send_ternimate_signal(dest_rank);
+
+    if (log_fp != NULL) {
+        printf("\n%d iterations reached, terminating\n", iterations_num);
+    } 
+    else {
+        printf("\nLog file cannot be detected, terminating\n");
+    }
+
+    fclose(log_fp);
+
+    MPI_Type_free(&EV_msg_type);
+    MPI_Finalize();
 }
 
 /**
@@ -181,7 +176,7 @@ void BStation::process_alert_report(EVNodeMessage* msg, time_t recv_time, int cu
 
     MPI_Send( &nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD);
 
-    // do_alert_log();
+    do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iteration);
 };
 
 void BStation::print_log(std::string info) {

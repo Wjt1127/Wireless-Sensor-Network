@@ -34,8 +34,6 @@ private:
     MPI_Datatype EV_msg_type;
     const char* LOG_FILE = "./logs/base_station.log";
 
-    void BStation_run();
-
     void process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iteration);
     void listen_report_from_WSN(int *alert_events);
     void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list);
