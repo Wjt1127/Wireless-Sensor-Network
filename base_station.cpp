@@ -7,6 +7,7 @@
 #include <thread>
 #include <time.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 #include "base_station.h"
@@ -30,10 +31,11 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     MPIHelper::create_EV_message_type(&EV_msg_type);
     std::thread listen_thread(&BStation::listen_report_from_WSN, this, &alert_events);
     std::thread timer_thread(&BStation::iteration_recorder, this);
+    std::thread process_alert_thread(&BStation::process_alert_report, this);
 
     timer_thread.join();
     listen_thread.join();
-
+    process_alert_thread.join();
 }
 
 BStation::~BStation() {
@@ -44,39 +46,37 @@ void BStation::iteration_recorder() {
     while (cur_iteration < iterations_num) {
         sleep(iteration_interval);
         
-        for (auto alert : alert_msgs) {
-            process_alert_report(alert.first, alert.second, cur_iteration);
-        }
-        
-        // if next iteration have get alert from that report node, that node should be available
-        alert_msgs.clear();
         std::fill(nodes_avail.begin(), nodes_avail.end(), true);
-
         cur_iteration++;
     }
 }
 
 void BStation::listen_report_from_WSN(int *alert_events) {
     time_t recv_time;
-    int messages_available;
+    MPI_Request recv_reqs[Base_station_rank];
+    EVNodeMessage msg[Base_station_rank];
+    MPI_Status stats[Base_station_rank];
+    int flag = 0;
+
+    for (int i = 0; i < Base_station_rank; i++) {
+        MPI_Irecv(&msg[i], 1, EV_msg_type, i, ALERT_MESSAGE, MPI_COMM_WORLD, &recv_reqs[i]);
+    }
 
     while (cur_iteration < iterations_num) {
         // check if a EVNode has sent an alert message
-        EVNodeMessage msg;
-        MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &messages_available, MPI_STATUS_IGNORE);
+        flag = 0;
+        for (int i = 0; i < Base_station_rank; i++) {
+            MPI_Test(&recv_reqs[i], &flag, &stats[i]);
+            if (flag) {
+                recv_time = time(nullptr);
+                BS_log alert_log;
+                alert_log.msg = msg;
+                alert_log.log_t = recv_time;
+                alert_log.log_iteration = cur_iteration;
+                alert_msgs.push_back(alert_log);
 
-        while (messages_available) {
-            // recv and process EV node messages
-            MPI_Recv(&msg, 1, EV_msg_type, MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            (*alert_events)++;
-            
-            recv_time = time(nullptr);
-            alert_msgs.push_back({&msg, recv_time});
-
-            // set as alert node
-            nodes_avail[msg.rank] = false;
-            // keep checking if more messages available
-            MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &messages_available, MPI_STATUS_IGNORE);
+                MPI_Irecv(&msg[i], 1, EV_msg_type, i, ALERT_MESSAGE, MPI_COMM_WORLD, &recv_reqs[i]);
+            }
         }
     }
 
@@ -169,14 +169,26 @@ int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
  * log the message in Base station
  * and send available nearby Nodes to report EVnode
 */
-void BStation::process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iter) {
+void BStation::process_alert_report() {
     int nearby_avail_nodes[Base_station_rank];
     int num_of_avail = 0;
-    get_available_EVNodes(msg, nearby_avail_nodes, &num_of_avail);
 
-    MPI_Send( &nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD);
+    while (true) {
+        if (!alert_msgs.empty()) {
+            BS_log alert = alert_msgs.front();
+            alert_msgs.pop_front();
+            EVNodeMessage* msg = alert.msg;
+            time_t recv_time = alert.log_t;
+            int cur_iter = alert.log_iteration;
+            num_of_avail = 0;
 
-    do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iter);
+            get_available_EVNodes(msg, nearby_avail_nodes, &num_of_avail);
+
+            MPI_Send(&nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD);
+
+            do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iter);
+        }
+    }
 };
 
 void BStation::print_log(std::string info) {
