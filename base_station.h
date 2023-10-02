@@ -10,9 +10,15 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <vector>
+#include <deque>
 
 #include "wireless_sensor.h"
 
+typedef struct {
+    EVNodeMessage *msg;
+    time_t log_t;
+    int log_iteration;
+} BS_log;
 
 class BStation {
 public:
@@ -29,12 +35,12 @@ private:
     int col;
     int alert_events;                   // alert events happen in a term
     std::vector<bool> nodes_avail;      // each EV node is available(true) or not
-    std::vector<std::pair<EVNodeMessage *, time_t> > alert_msgs;    // store alert messages and log time in an iteration 
+    std::deque<BS_log> alert_msgs;    // store alert messages and log time in an iteration 
     FILE* log_fp;
     MPI_Datatype EV_msg_type;
     const char* LOG_FILE = "./logs/base_station.log";
 
-    void process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iteration);
+    void process_alert_report();
     void listen_report_from_WSN(int *alert_events);
     void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list);
     void send_ternimate_signal(int dest_rank);
