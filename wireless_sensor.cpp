@@ -46,6 +46,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
 WirelessSensor::~WirelessSensor()
 {
     delete msg;
+    MPI_Type_free(&EV_msg_type);
 }
 
 void WirelessSensor::get_neighbors()
