@@ -1,6 +1,7 @@
 #ifndef BASE_STATION_H
 #define BASE_STATION_H
 
+#include <bits/types/time_t.h>
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
@@ -28,23 +29,26 @@ private:
     int col;
     int alert_events;                   // alert events happen in a term
     std::vector<bool> nodes_avail;      // each EV node is available(true) or not
-    std::vector<std::pair<EVNodeMessage *, double> > alert_msgs;    // store alert messages and log time in an iteration 
+    std::vector<std::pair<EVNodeMessage *, time_t> > alert_msgs;    // store alert messages and log time in an iteration 
     FILE* log_fp;
     MPI_Datatype EV_msg_type;
-    const char* LOG_FILE = "base_station.log";
+    const char* LOG_FILE = "./logs/base_station.log";
 
     void BStation_run();
 
-    void process_alert_report(EVNodeMessage* msg, double recv_time);
+    void process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iteration);
     void listen_report_from_WSN(int *alert_events);
     void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list);
     void send_ternimate_signal(int dest_rank);
 
     void init_nodes_avail();
-    int cal_sleep_time(double start_time);
     void iteration_recorder();
     void get_neighbor_coord_from_rank(int rank, int adjacent_coords[][2]);
     void get_neighbor_rank(int rank, int *adjacent_rank);
+    
+    void do_alert_log(EVNodeMessage* msg, time_t log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration);
+    void do_terminate_log();
+    void print_log(std::string info);
 };
 
 

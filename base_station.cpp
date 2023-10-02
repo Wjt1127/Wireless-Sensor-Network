@@ -1,6 +1,8 @@
+#include <bits/types/time_t.h>
 #include <cstddef>
 #include <cstdio>
 #include <mpi.h>
+#include <string>
 #include <thread>
 #include <time.h>
 #include <unistd.h>
@@ -17,7 +19,7 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     cur_iteration = 0;
     Base_station_rank = row * col;
     alert_events = 0;
-    
+
     log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
         printf( "Could not open file %s\n", LOG_FILE);
@@ -64,7 +66,7 @@ void BStation::iteration_recorder() {
         sleep(iteration_interval);
         
         for (auto alert : alert_msgs) {
-            process_alert_report(alert.first, alert.second);
+            process_alert_report(alert.first, alert.second, cur_iteration);
         }
         
         // if next iteration have get alert from that report node, that node should be available
@@ -76,7 +78,7 @@ void BStation::iteration_recorder() {
 }
 
 void BStation::listen_report_from_WSN(int *alert_events) {
-    double recv_time;
+    time_t recv_time;
     int messages_available;
 
     while (cur_iteration < iterations_num) {
@@ -89,7 +91,7 @@ void BStation::listen_report_from_WSN(int *alert_events) {
             MPI_Recv(&msg, 1, EV_msg_type, MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             (*alert_events)++;
             
-            recv_time = MPI_Wtime();
+            recv_time = time(nullptr);
             alert_msgs.push_back({&msg, recv_time});
 
             // set as alert node
@@ -98,13 +100,6 @@ void BStation::listen_report_from_WSN(int *alert_events) {
             MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &messages_available, MPI_STATUS_IGNORE);
         }
     }
-}
-
-int BStation::cal_sleep_time(double start_time) {
-    double end_time = MPI_Wtime();
-    double sleep_length = (start_time + ((double)iteration_interval / 1000) - end_time) * 1e6;
-    if ((long)sleep_length > 0) return (long)sleep_length;
-    else return 0;
 }
 
 /**
@@ -177,33 +172,50 @@ int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
 
 /**
  * log the message in Base station
- * process aler msg from EV node and send available nearby Nodes to report EVnode
+ * and send available nearby Nodes to report EVnode
 */
-void BStation::process_alert_report(EVNodeMessage* msg, double recv_time) {
-    char log_msg[1024];
-    char display_dt_logged[64];
-    int len = 0;
-
+void BStation::process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iteration) {
     int nearby_avail_nodes[Base_station_rank];
     int num_of_avail = 0;
     get_available_EVNodes(msg, nearby_avail_nodes, &num_of_avail);
 
     MPI_Send( &nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD);
 
-    len += snprintf(log_msg + len, sizeof(log_msg) - len, "--------------------\n");
+    // do_alert_log();
+};
 
-    // logged time
+void BStation::print_log(std::string info) {
+    if (log_fp) {
+        fprintf(log_fp, "%s\n", info.c_str());
+    }
+}
 
-    format_to_datetime(time(NULL), display_dt_logged, sizeof(display_dt_logged));
-    len += snprintf(log_msg + len, sizeof(log_msg) - len, "Logged time: %s\n",
-                  display_dt_logged);
+void BStation::do_alert_log(EVNodeMessage* msg, time_t log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration) {
+    std::string divider = "------------------------------------------------------------------------------------------------------------\n";
+    print_log(divider);
 
-    // print details of neighbours to the reporting station
-    for (int i = 0; i < msg->matching_neighbours; ++i) {
-        len += snprintf(log_msg + len, sizeof(log_msg) - len, "%d\n", msg->neighbor_ranks[i]);
+    std::string info = "Iteration : " + std::to_string(cur_iteration) + "\n";
+    print_log(info);
+
+    std::string log_t = ctime(&log_time);
+    info = "Logged time : \t\t\t" + log_t + "\n";
+
+    std::string report_node = "Reporting Node : " + std::to_string(msg->rank) + "\n";
+    print_log(report_node);
+
+    std::string neighbor_node;
+    for (int i = 0; i < 4; i++) {
+        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+            neighbor_node = "Adjacent Nodes : " + std::to_string(msg->neighbor_ranks[i]) + "\n";
+            print_log(neighbor_node);
+        }
+    } 
+
+    std::string nearby_avail;
+    for (int i = 0; i < num_of_avail; i++) {
+        nearby_avail = "Nearby Nodes : " + std::to_string(nearby_avail_nodes[i]) + "\n";
+        print_log(nearby_avail);
     }
 
-    len += snprintf(log_msg + len, sizeof(log_msg) - len, "--------------------\n");
-    printf("%s", log_msg);
-    fprintf(log_fp, "%s", log_msg);
-};
+    print_log(divider);
+}
