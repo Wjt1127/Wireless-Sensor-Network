@@ -4,7 +4,6 @@
 #include <atomic>
 #include <bits/types/FILE.h>
 #include <bits/types/time_t.h>
-#define MAX_DATA_LENGTH 1024
 #include <mpi.h>
 #include <stdio.h>
 #include <fstream>
@@ -123,7 +122,7 @@ class WirelessSensor
 {
 public:
     WirelessSensor() = delete;
-    WirelessSensor(int r_, int c_, int x_, int y_, int rank_, std::string &source);
+    WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm);
 
 private:
     int row;
@@ -151,7 +150,7 @@ private:
     void listen_nearby_from_base(int base_station_rank);
 
     void port_simulation(int port_id);
-    void report_availability(std::string avail_source);
+    void report_availability();
     void prompt_availability();
     void response_availability();
 

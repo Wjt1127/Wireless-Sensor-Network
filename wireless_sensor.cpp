@@ -15,8 +15,8 @@
 #include "mpi_helper.h"
 
 
-WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, std::string &source):
-    row(r_), col(c_), x(x_), y(y_), rank(rank_), 
+WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
+    row(r_), col(c_), x(x_), y(y_), rank(rank_), EV_comm(ev_comm),
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
     this->get_neighbors();
@@ -24,7 +24,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, std::s
     this->full_log_num = 0;
     MPIHelper::create_EV_message_type(&EV_msg_type);
 
-    std::thread report_thread(&WirelessSensor::report_availability, this, source);
+    std::thread report_thread(&WirelessSensor::report_availability, this);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
     std::thread respond_thread(&WirelessSensor::response_availability, this);
     std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this, row * col);
@@ -79,7 +79,7 @@ void WirelessSensor::port_simulation(int port_id)
 /**
  *  periodically updates and report the availability of node to shared array
 */
-void WirelessSensor::report_availability(std::string avail_source)
+void WirelessSensor::report_availability()
 {
     AvailabilityLog log_entry;
     time_t now;
