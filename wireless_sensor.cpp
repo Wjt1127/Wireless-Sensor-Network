@@ -21,7 +21,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, std::string &sour
 
     std::thread report_thread(&WirelessSensor::report_availability, this, source);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
-    std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this);
+    std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this, row * col);
 
     report_thread.join();
     prompt_thread.join();
@@ -119,9 +119,6 @@ bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[
  * neighbor nodes send data stored in msg.
  */
 void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
-
-    int periods[2] = {0, 0};
-    int reorder = 1;
     MPI_Request reqs[8];
     MPI_Status stats[8];
 

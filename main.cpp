@@ -29,6 +29,7 @@ int main(int argc, char *argv[]) {
         WirelessSensor WirelessSensor(row, col, world_rank / col, world_rank % col, source);
     }
     
+    MPI_Comm_free(&EV_comm);
     MPI_Finalize();
     return 0;
 }
