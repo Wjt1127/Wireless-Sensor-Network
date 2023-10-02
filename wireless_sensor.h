@@ -60,18 +60,20 @@ private:
     int y;
     int ports_num;
     std::deque<AvailabilityLog> avail_table;
-    MPI_Comm EV_Comm;
+    MPI_Comm EV_comm;
+    MPI_Comm grid_comm;
+    MPI_Datatype EV_msg_type;
     
-
-    void send_alert_to_base(int base_station_rank, char *alert_msg);
-    void get_message_from_neighbor(MPI_Comm EV_Comm, EVNodeMessage *msg);
+    void compose_alert_message(EVNodeMessage *msg);
+    void send_alert_to_base(int base_station_rank, EVNodeMessage* alert_msg);
+    void get_message_from_neighbor(EVNodeMessage *msg);
     void process_neighbor_message();
     void listen_terminal_from_base(int base_station_rank); 
 
     void report_availability(std::string avail_source);
     void prompt_availability();
 
-    bool prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int num_of_avail_neighbor);
+    bool prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int* num_of_avail_neighbor);
 
 };
 

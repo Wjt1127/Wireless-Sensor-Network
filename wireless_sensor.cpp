@@ -7,24 +7,24 @@
 
 #include "wireless_sensor.h"
 #include "types.h"
+#include "mpi_helper.h"
 
 
 WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, std::string &source):
     row(r_), col(c_), x(x_), y(y_)
 {
-    int grid_dimensions = 2;
     int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
-    MPI_Comm grid_comm;
     int periods[2] = {0, 0};
-    int reorder = 1;
-    MPI_Request reqs[8]; 
 
-    MPI_Cart_create(EV_Comm, grid_dimensions, dimension_sizes, periods, reorder, &grid_comm);
-    
+    MPI_Cart_create(EV_comm, 2, dimension_sizes, periods, 1, &grid_comm);
+    MPIHelper::create_EV_message_type(&EV_msg_type);
+
     std::thread report_thread(&WirelessSensor::report_availability, this, source);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
     std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this);
+
     report_thread.join();
+    prompt_thread.join();
     listen_thread.join();
 }
 
@@ -62,12 +62,20 @@ void WirelessSensor::report_availability(std::string avail_source)
 */
 void WirelessSensor::prompt_availability()
 {
+    EVNodeMessage msg;
+    int avail_neighbor[4];
+    int num_of_avail_neighbor;
+    bool to_alert;
 
     while (!avail_table.empty())
     {
         if (avail_table.back().availability == 0)
         {
-            
+            get_message_from_neighbor(&msg);
+            to_alert = prompt_alert_or_not(&msg, avail_neighbor, &num_of_avail_neighbor);
+            if (to_alert) {
+                send_alert_to_base(row * col, &msg);
+            }
         }
     }
 }
@@ -80,7 +88,10 @@ void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
     /*
         need to be done
     */
-
+    char buf[2];
+    MPI_Status stat;
+    MPI_Recv(buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &stat);
+    MPI_Finalize();
 }
 
 /**
@@ -88,15 +99,15 @@ void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
  * determine if a alert report should be prompted to the base station, 
  * if there are available ports then they are stored in the parameter avail_neighbor.
 */
-bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int num_of_avail_neighbor) {
+bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int* num_of_avail_neighbor) {
     bool isprompt = true;
-    num_of_avail_neighbor = 0;
+    *num_of_avail_neighbor = 0;
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
         if (msg->neighbor_avail_ports[i] < ports_num) {
             isprompt = false;
-            avail_neighbor[num_of_avail_neighbor++] = msg->neighbor_ranks[i];
+            avail_neighbor[(*num_of_avail_neighbor)++] = msg->neighbor_ranks[i];
         }
     }
 
@@ -107,39 +118,39 @@ bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[
  * The node prompt for neighbor node data (top, bottom, right and left in 2-dims Cart),
  * neighbor nodes send data stored in msg.
  */
-void WirelessSensor::get_message_from_neighbor(MPI_Comm EV_Comm, EVNodeMessage *msg) {
-    /* single to group in Cart */
+void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
 
-    int grid_dimensions = 2;
-    int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
-    MPI_Comm grid_comm;
     int periods[2] = {0, 0};
     int reorder = 1;
-    MPI_Request reqs[8]; 
+    MPI_Request reqs[8];
+    MPI_Status stats[8];
 
-    MPI_Cart_create(EV_Comm, grid_dimensions, dimension_sizes, periods, reorder, &grid_comm);
     /* get ranks of neighbours */
-    MPI_Cart_shift(grid_comm, 0, 1, &msg->neighbor_ranks[0], &msg->neighbor_ranks[1]);  // get rank of top, bottom 
-    MPI_Cart_shift(grid_comm, 1, 1, &msg->neighbor_ranks[2], &msg->neighbor_ranks[3]);  // get rank of left, right
+    /* get rank of top, bottom */
+    MPI_Cart_shift(grid_comm, 0, 1, &msg->neighbor_ranks[0], &msg->neighbor_ranks[1]);
+    /* get rank of left, right */
+    MPI_Cart_shift(grid_comm, 1, 1, &msg->neighbor_ranks[2], &msg->neighbor_ranks[3]);
     
     /* get coordinations of neighbors */
     for (int i = 0; i < 4; ++i) {
         // avoid corner case
-        if (msg->neighbor_ranks[i] != MPI_PROC_NULL)
-            MPI_Cart_coords(grid_comm, msg->neighbor_ranks[i], grid_dimensions, msg->neighbor_coords[i]);
+        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+            MPI_Cart_coords(grid_comm, msg->neighbor_ranks[i], 2, msg->neighbor_coords[i]);
+        }
     }
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-            MPI_Isend(&(avail_table.back().availability), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], 1, grid_comm, &reqs[i]);
-            MPI_Irecv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], 1, grid_comm, &reqs[i + 4]);
+            MPI_Isend(&(avail_table.back().availability), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &reqs[i]);
+            MPI_Irecv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &reqs[i + 4]);
         }
     }
-
+    /* wait for result of MPI_Isend/MPI_Irecv */
+    MPI_Waitall(8, reqs, stats);
 }
 
-void WirelessSensor::send_alert_to_base(int base_station_rank, char* alert_msg) 
+void WirelessSensor::send_alert_to_base(int base_station_rank, EVNodeMessage* alert_msg) 
 {   
     // single to single communication
-    MPI_Send(alert_msg, sizeof(alert_msg), MPI_CHAR, base_station_rank, 0, MPI_COMM_WORLD);
+    MPI_Send(alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
 }
