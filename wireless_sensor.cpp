@@ -216,7 +216,8 @@ bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[
 void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
     MPI_Request send_reqs[4];
     MPI_Request recv_reqs[4];
-    MPI_Status stats[4];
+    MPI_Status send_stats[4];
+    MPI_Status recv_stats[4];
     int valid_reqs_num = 0;
 
     for (int i = 0; i < 4; i++) {
@@ -228,8 +229,8 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
     }
 
     /* wait for result of MPI_Isend/MPI_Irecv */    
-    MPI_Waitall(valid_reqs_num, send_reqs, stats);
-    MPI_Waitall(valid_reqs_num, recv_reqs, stats);
+    MPI_Waitall(valid_reqs_num, send_reqs, send_stats);
+    MPI_Waitall(valid_reqs_num, recv_reqs, recv_stats);
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
