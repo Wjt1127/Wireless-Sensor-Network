@@ -20,6 +20,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
     msg = new EVNodeMessage;
+    msg->rank = rank_;
     this->get_neighbors();
     this->init_ports();
     this->full_log_num = 0;
@@ -244,9 +245,12 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
 void WirelessSensor::send_alert_to_base(int base_station_rank, EVNodeMessage* alert_msg) 
 {   
     // single to single communication
+    MPI_Request send_req;
+    MPI_Status status;
     logger.alert_log(rank);
     alert_msg->alert_time = time(nullptr);
-    MPI_Send(alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
+    MPI_Isend(alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &send_req);
+    MPI_Wait( &send_req , &status);
 }
 
 /**

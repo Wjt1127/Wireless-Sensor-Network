@@ -3,6 +3,7 @@
 
 #include <bits/types/time_t.h>
 #include <math.h>
+#include <atomic>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,7 +30,7 @@ public:
 private:
     unsigned int iteration_interval;    // interval time of a iteration (s)
     unsigned int iterations_num;        // the num of iterations
-    unsigned int cur_iteration;         // iteration-thread updates cur_iteration
+    std::atomic<unsigned int> cur_iteration;         // iteration-thread updates cur_iteration
     int Base_station_rank;
     int row;
     int col;
