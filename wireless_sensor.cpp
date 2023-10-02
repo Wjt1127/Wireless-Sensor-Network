@@ -70,7 +70,11 @@ void WirelessSensor::init_ports()
 void WirelessSensor::port_simulation(int port_id)
 {
     while (true) {
-        int time = rand() % 20;
+        int time = rand() % 30;
+        if (!ports_avail[port_id])
+        {
+            time += 60;
+        }
         sleep(time);
         ports_avail[port_id] = !ports_avail[port_id];
     }
