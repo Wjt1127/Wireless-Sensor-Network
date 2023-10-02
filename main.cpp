@@ -2,8 +2,6 @@
 #include <iostream>
 #include <mpi_proto.h>
 #include <stdlib.h>
-#include <time.h>
-
 #include "base_station.h"
 #include "wireless_sensor.h"
 
