@@ -1,9 +1,12 @@
+#include <algorithm>
+#include <bits/types/time_t.h>
 #include <mpi.h>
 #include <fstream>
 #include <iostream>
 #include <mpi_proto.h>
 #include <unistd.h>
 #include <thread>
+#include <ctime>
 
 #include "wireless_sensor.h"
 #include "types.h"
@@ -13,19 +16,57 @@
 WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, std::string &source):
     row(r_), col(c_), x(x_), y(y_)
 {
-    int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
-    int periods[2] = {0, 0};
-
-    MPI_Cart_create(EV_comm, 2, dimension_sizes, periods, 1, &grid_comm);
+    this->get_neighbors();
     MPIHelper::create_EV_message_type(&EV_msg_type);
 
     std::thread report_thread(&WirelessSensor::report_availability, this, source);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
+    std::thread respond_thread(&WirelessSensor::response_availability, this);
     std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this, row * col);
+    std::thread port_threads[ports_num];
+    for (int i = 0; i < ports_num; i++) {
+        port_threads[i] = std::thread(&WirelessSensor::port_simulation, this, i);
+    }
 
     report_thread.join();
     prompt_thread.join();
+    respond_thread.join();
     listen_thread.join();
+}
+
+void WirelessSensor::get_neighbors()
+{
+    int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
+    int periods[2] = {0, 0};
+    MPI_Cart_create(EV_comm, 2, dimension_sizes, periods, 1, &grid_comm);
+    /* get ranks of neighbours */
+    /* get rank of top, bottom */
+    MPI_Cart_shift(grid_comm, 0, 1, &msg->neighbor_ranks[0], &msg->neighbor_ranks[1]);
+    /* get rank of left, right */
+    MPI_Cart_shift(grid_comm, 1, 1, &msg->neighbor_ranks[2], &msg->neighbor_ranks[3]);
+    
+    /* get coordinations of neighbors */
+    for (int i = 0; i < 4; ++i) {
+        // avoid corner case
+        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+            MPI_Cart_coords(grid_comm, msg->neighbor_ranks[i], 2, msg->neighbor_coords[i]);
+        }
+    }
+}
+
+void WirelessSensor::init_ports()
+{
+    ports_avail.resize(ports_num);
+    std::fill(ports_avail.begin(), ports_avail.end(), true);
+}
+
+void WirelessSensor::port_simulation(int port_id)
+{
+    while (true) {
+        int time = rand() % 20;
+        sleep(time);
+        ports_avail[port_id] = !ports_avail[port_id];
+    }
 }
 
 /**
@@ -33,20 +74,22 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, std::string &sour
 */
 void WirelessSensor::report_availability(std::string avail_source)
 {
-    std::ifstream avail_stream;
-
-    avail_stream.open(avail_source);
-    if (!avail_stream.is_open()) 
-    {
-        std::cout << avail_source + " open failed" << std::endl;
-        return;
-    }
-
-    while (!avail_stream.eof())
-    {
+    while (true) {
         sleep(AVAILABILITY_TIME_CYCLE);
         AvailabilityLog log_entry;
-        avail_stream >> log_entry;
+        time_t now;
+        tm* ltm;
+        int avail;
+
+        now = time(nullptr);
+        ltm = localtime(&now);
+        avail = std::count_if(ports_avail.begin(), ports_avail.end(), [](bool i){return i;});
+        log_entry.time.year = ltm->tm_year;
+        log_entry.time.month = ltm->tm_mon;
+        log_entry.time.day = ltm->tm_mday;
+        log_entry.time.minute = ltm->tm_min;
+        log_entry.time.second = ltm->tm_sec;
+        log_entry.availability = avail;
 
         while (avail_table.size() >= FIXED_ARRAY_SIZE) 
         {
@@ -75,6 +118,37 @@ void WirelessSensor::prompt_availability()
             to_alert = prompt_alert_or_not(&msg, avail_neighbor, &num_of_avail_neighbor);
             if (to_alert) {
                 send_alert_to_base(row * col, &msg);
+            }
+        }
+    }
+}
+
+void WirelessSensor::response_availability()
+{
+    MPI_Request recv_reqs[4];
+    MPI_Request send_reqs[4];
+    MPI_Status stats[4];
+    unsigned int avail = 0;
+        
+    for (int i = 0; i < 4; i++) {
+        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+            MPI_Irecv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &recv_reqs[i]);
+        }
+    }
+
+    /**
+     *  if any recv_req is finished, send avail message to that source EVnode, 
+     *  and start a new recv_req listening to that EVnode
+    */
+    while (true) {
+        int flag = 0;
+        for (int i = 0; i < 4; i++) {
+            if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+                MPI_Test(&recv_reqs[i], &flag, &stats[i]);
+                if (flag) {
+                    MPI_Isend(&(avail_table.back().availability), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &send_reqs[i]);
+                    MPI_Irecv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &recv_reqs[i]);
+                }
             }
         }
     }
@@ -122,23 +196,9 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
     MPI_Request reqs[8];
     MPI_Status stats[8];
 
-    /* get ranks of neighbours */
-    /* get rank of top, bottom */
-    MPI_Cart_shift(grid_comm, 0, 1, &msg->neighbor_ranks[0], &msg->neighbor_ranks[1]);
-    /* get rank of left, right */
-    MPI_Cart_shift(grid_comm, 1, 1, &msg->neighbor_ranks[2], &msg->neighbor_ranks[3]);
-    
-    /* get coordinations of neighbors */
-    for (int i = 0; i < 4; ++i) {
-        // avoid corner case
-        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-            MPI_Cart_coords(grid_comm, msg->neighbor_ranks[i], 2, msg->neighbor_coords[i]);
-        }
-    }
-
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-            MPI_Isend(&(avail_table.back().availability), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &reqs[i]);
+            MPI_Isend(&(avail_table.back().availability), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &reqs[i]);
             MPI_Irecv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &reqs[i + 4]);
         }
     }
