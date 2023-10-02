@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     else {
         // start a sensor
         std::string source;
-        WirelessSensor WirelessSensor(row, col, world_rank / col, world_rank % col, source);
+        WirelessSensor WirelessSensor(row, col, world_rank / col, world_rank % col, world_rank, source);
     }
     
     MPI_Comm_free(&EV_comm);
