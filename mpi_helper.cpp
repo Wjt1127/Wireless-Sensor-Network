@@ -44,5 +44,3 @@ void MPIHelper::create_EV_message_type(MPI_Datatype *EV_message_type) {
                            datatypes, EV_message_type);
     MPI_Type_commit(EV_message_type);
 }
-
-
