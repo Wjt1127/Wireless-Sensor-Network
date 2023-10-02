@@ -146,6 +146,7 @@ private:
     MPI_Datatype EV_msg_type;
     EVNodeMessage *msg;
     std::atomic_int full_log_num;
+    std::atomic_int stop;
     EVLogger logger;
     
     void get_neighbors();
