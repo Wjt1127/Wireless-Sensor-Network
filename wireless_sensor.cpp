@@ -19,6 +19,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
     row(r_), col(c_), x(x_), y(y_), rank(rank_), EV_comm(ev_comm),
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
+    msg = new EVNodeMessage;
     this->get_neighbors();
     this->init_ports();
     this->full_log_num = 0;
@@ -37,6 +38,14 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
     prompt_thread.join();
     respond_thread.join();
     listen_thread.join();
+    for (int i = 0; i < ports_num; i++) {
+        port_threads[i].join();
+    }
+}
+
+WirelessSensor::~WirelessSensor()
+{
+    delete msg;
 }
 
 void WirelessSensor::get_neighbors()
@@ -92,7 +101,6 @@ void WirelessSensor::report_availability()
     int avail;
     
     while (true) {
-        sleep(AVAILABILITY_TIME_CYCLE);
 
         now = time(nullptr);
         ltm = localtime(&now);
@@ -112,13 +120,13 @@ void WirelessSensor::report_availability()
         avail_table.push_back(log_entry);
 
         logger.avail_log(rank, ctm, avail);
-        free(ltm);
-        free(ctm);
 
         if (avail == 0) 
         {
             ++full_log_num;
         }
+
+        sleep(AVAILABILITY_TIME_CYCLE);
     }
 }
 

@@ -23,7 +23,7 @@ class EVLogger
 public:
 
     EVLogger(std::string filename) {
-        logfile = fopen(filename.c_str(), "r+");
+        logfile = fopen(filename.c_str(), "a+");
     }
 
     ~EVLogger() {
@@ -31,6 +31,7 @@ public:
     }
 
     void avail_log(int rank, std::string now, int avail) {
+        now.pop_back();
         std::string info = "AVAIL_LOG: " + now + ", rank " + std::to_string(rank) + " availability is " + std::to_string(avail);
         print_log(info);
     }
@@ -38,6 +39,7 @@ public:
     void prompt_log(int rank) {
         time_t t= time(nullptr);
         std::string now = ctime(&t);
+        now.pop_back();
         std::string info = "PROMPT_LOG: " + now + ", rank " + std::to_string(rank) + " availability is 0 and starts to prompt";
         print_log(info);
     }
@@ -45,6 +47,7 @@ public:
     void neighbor_log(int rank, int neighbor, int avail) {
         time_t t= time(nullptr);
         std::string now = ctime(&t);
+        now.pop_back();
         std::string info = "NEIGHBOR_LOG: " + now + ", rank " + std::to_string(rank) + "\'s neighbor " + std::to_string(neighbor)
             + "\'s availability is" + std::to_string(avail);
         print_log(info);
@@ -53,6 +56,7 @@ public:
     void alert_log(int rank) {
         time_t t= time(nullptr);
         std::string now = ctime(&t);
+        now.pop_back();
         std::string info = "ALERT_LOG: " + now + ", rank " + std::to_string(rank) + " starts to alert";
         print_log(info);
     }
@@ -61,6 +65,7 @@ public:
         std::string info;
         time_t t= time(nullptr);
         std::string now = ctime(&t);
+        now.pop_back();
         if (nearby_rank == MPI_PROC_NULL)
             info = "NEARBY_LOG: " + now + ", rank " + std::to_string(rank) + " has no available nearby EVnode";
         else 
@@ -71,6 +76,7 @@ public:
     void terminate_log(int rank) {
         time_t t= time(nullptr);
         std::string now = ctime(&t);
+        now.pop_back();
         std::string info = "TERMINATE_LOG: " + now + ", rank " + std::to_string(rank) + " terminates";
         print_log(info);
     }
@@ -80,6 +86,7 @@ private:
     void print_log(std::string info) {
         if (logfile) {
             fprintf(logfile, "%s\n", info.c_str());
+            fflush(logfile);
         }
     }
 };
@@ -123,6 +130,7 @@ class WirelessSensor
 public:
     WirelessSensor() = delete;
     WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm);
+    ~WirelessSensor();
 
 private:
     int row;
@@ -130,7 +138,7 @@ private:
     int x;
     int y;
     int rank;
-    int ports_num;
+    int ports_num = 10;
     std::vector<int> ports_avail;
     std::deque<AvailabilityLog> avail_table;
     MPI_Comm EV_comm;
