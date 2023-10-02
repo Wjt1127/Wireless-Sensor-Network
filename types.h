@@ -8,7 +8,8 @@
 enum {
     AVAIL_MESSAGE = 1,
     ALERT_MESSAGE = 2,
-    TERMINATE = 3,
+    PROMPT_NEIGHBOR_MESSAGE = 3,
+    TERMINATE = 4,
 };
 
 #endif
