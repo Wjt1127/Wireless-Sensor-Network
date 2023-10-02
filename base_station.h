@@ -23,13 +23,12 @@ private:
     FILE* log_fp;
     int terminate;
     unsigned int listen_interval;
-
+    MPI_Datatype EV_msg_type;
     const char* LOG_FILE = "base_station.log";
-
 
     void process_EVNode_message(EVNodeMessage* msg);
     void listen_report_from_WSN();
-    void send_terminal_signal();
+    void send_terminal_signal(int dest);
 };
 
 
