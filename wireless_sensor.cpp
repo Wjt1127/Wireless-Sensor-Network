@@ -201,7 +201,7 @@ bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
-        if (msg->neighbor_avail_ports[i] < ports_num) {
+        if (msg->neighbor_avail_ports[i] > 0) {
             isprompt = false;
             avail_neighbor[(*num_of_avail_neighbor)++] = msg->neighbor_ranks[i];
         }
