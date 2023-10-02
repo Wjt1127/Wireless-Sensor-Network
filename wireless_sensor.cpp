@@ -228,6 +228,7 @@ void WirelessSensor::send_alert_to_base(int base_station_rank, EVNodeMessage* al
 {   
     // single to single communication
     logger.alert_log(rank);
+    alert_msg->mpi_time = time(nullptr);
     MPI_Send(alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
 }
 
