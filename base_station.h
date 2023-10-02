@@ -15,20 +15,22 @@
 class BStation {
 public:
     BStation() = default;
-    BStation(int _listen_interval, int _terminate);
+    BStation(int _listen_interval);
     ~BStation();
 
 private:
+    unsigned int listen_interval;
     int Base_station_rank;
     FILE* log_fp;
     int terminate;
-    unsigned int listen_interval;
     MPI_Datatype EV_msg_type;
     const char* LOG_FILE = "base_station.log";
 
-    void process_EVNode_message(EVNodeMessage* msg);
+    void print_EVNode_message(EVNodeMessage* msg);
     void listen_report_from_WSN();
-    void send_terminal_signal(int dest);
+    void process_alert_report();
+    void process_available_report();
+    void send_terminal_signal(int dest_rank);
 };
 
 

@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <mpi.h>
 #include <thread>
 #include <time.h>
@@ -8,10 +9,21 @@
 #include "wireless_sensor.h"
 #include "mpi_helper.h"
 
-BStation::BStation(int _listen_interval, int _terminate) : listen_interval(_listen_interval), terminate(_terminate) {
+BStation::BStation(int _listen_interval) : listen_interval(_listen_interval), terminate(0) {
+    log_fp = fopen(LOG_FILE, "a" );
+    if (log_fp == NULL) {
+        printf( "Could not open file %s\n", LOG_FILE);
+        exit(-1);
+    }
+
     MPIHelper::create_EV_message_type(&EV_msg_type);
     std::thread listen_thread(&BStation::listen_report_from_WSN, this);
     listen_thread.join();
+}
+
+BStation::~BStation() {
+    if (log_fp != NULL) fclose(log_fp);
+    MPI_Type_free(&EV_msg_type);
 }
 
 void BStation::listen_report_from_WSN() {
@@ -20,7 +32,7 @@ void BStation::listen_report_from_WSN() {
         EVNodeMessage EV_msg;
         MPI_Request request;
 
-        // recv message from any EVNode（MPI_ANY_SOURCE），
+        // recv message from any EVNode（MPI_ANY_SOURCE）
         // use Irecv(non-block)
         MPI_Irecv(&EV_msg, 1, EV_msg_type, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &request);
 
@@ -30,7 +42,7 @@ void BStation::listen_report_from_WSN() {
             if (flag) {
                 // recv message successfully and print message
                 printf("Received message from rank %d: \n", status.MPI_SOURCE);
-                BStation::process_EVNode_message(&EV_msg);
+                BStation::print_EVNode_message(&EV_msg);
             } else {
                 // no message wait for a period
                 sleep(listen_interval);
@@ -39,13 +51,20 @@ void BStation::listen_report_from_WSN() {
     }
 }
 
-void BStation::send_terminal_signal(int dest) {
+void BStation::send_terminal_signal(int dest_rank) {
     char buf = '\0';
-    MPI_Request bcast_req;
     // indicate to thread to terminate
     terminate = 1;
     // send message to terminate
-    MPI_Send(&buf, 1, MPI_CHAR, dest, TERMINATE, MPI_COMM_WORLD);
+    MPI_Send(&buf, 1, MPI_CHAR, dest_rank, TERMINATE, MPI_COMM_WORLD);
+}
+
+void BStation::process_alert_report() {
+    
+}
+
+void BStation::process_available_report() {
+
 }
 
 int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
@@ -53,7 +72,7 @@ int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
     return strftime(out_buf, out_buf_len, "%c", tm);
 }
 
-void BStation::process_EVNode_message(EVNodeMessage* msg) {
+void BStation::print_EVNode_message(EVNodeMessage* msg) {
     char log_msg[1024];
     int len = 0;
 
