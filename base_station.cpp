@@ -169,14 +169,14 @@ int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
  * log the message in Base station
  * and send available nearby Nodes to report EVnode
 */
-void BStation::process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iteration) {
+void BStation::process_alert_report(EVNodeMessage* msg, time_t recv_time, int cur_iter) {
     int nearby_avail_nodes[Base_station_rank];
     int num_of_avail = 0;
     get_available_EVNodes(msg, nearby_avail_nodes, &num_of_avail);
 
     MPI_Send( &nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD);
 
-    do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iteration);
+    do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iter);
 };
 
 void BStation::print_log(std::string info) {
@@ -185,11 +185,11 @@ void BStation::print_log(std::string info) {
     }
 }
 
-void BStation::do_alert_log(EVNodeMessage* msg, time_t log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration) {
+void BStation::do_alert_log(EVNodeMessage* msg, time_t log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iter) {
     std::string divider = "------------------------------------------------------------------------------------------------------------\n";
     print_log(divider);
 
-    std::string info = "Iteration : " + std::to_string(cur_iteration) + "\n";
+    std::string info = "Iteration : " + std::to_string(cur_iter) + "\n";
     print_log(info);
 
     std::string log_t = ctime(&log_time);
