@@ -180,7 +180,7 @@ void WirelessSensor::response_availability()
             if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
                 MPI_Test(&recv_reqs[i], &flag, &stats[i]);
                 if (flag) {
-                    my_avail[i] = avail_table.empty(): 0 : avail_table.back().availability;
+                    my_avail[i] = avail_table.empty()? 0 : avail_table.back().availability;
                     MPI_Isend(&(my_avail[i]), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &send_reqs[i]);
                     MPI_Irecv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &recv_reqs[i]);
                 }
