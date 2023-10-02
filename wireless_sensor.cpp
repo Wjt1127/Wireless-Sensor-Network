@@ -24,6 +24,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
     this->init_ports();
     this->full_log_num = 0;
     MPIHelper::create_EV_message_type(&EV_msg_type);
+    stop = 0;
 
     std::thread report_thread(&WirelessSensor::report_availability, this);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
@@ -79,7 +80,7 @@ void WirelessSensor::init_ports()
 
 void WirelessSensor::port_simulation(int port_id)
 {
-    while (true) {
+    while (!stop) {
         int time = rand() % 30;
         if (!ports_avail[port_id])
         {
@@ -101,7 +102,7 @@ void WirelessSensor::report_availability()
     char* ctm;
     int avail;
     
-    while (true) {
+    while (!stop) {
 
         now = time(nullptr);
         ltm = localtime(&now);
@@ -141,7 +142,7 @@ void WirelessSensor::prompt_availability()
     int num_of_avail_neighbor;
     bool to_alert;
 
-    while (true)
+    while (!stop)
     {
         if (full_log_num > 0)
         {
@@ -175,7 +176,7 @@ void WirelessSensor::response_availability()
      *  if any recv_req is finished, send avail message to that source EVnode, 
      *  and start a new recv_req listening to that EVnode
     */
-    while (true) {
+    while (!stop) {
         int flag = 0;
         for (int i = 0; i < 4; i++) {
             if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
@@ -257,7 +258,7 @@ void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
     MPI_Status stat;
     MPI_Recv(buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &stat);
     logger.terminate_log(rank);
-    MPI_Finalize();
+    stop = 1;
 }
 
 /**
