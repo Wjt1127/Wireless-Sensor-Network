@@ -24,8 +24,9 @@ private:
     unsigned int iterations_num;        // the num of iterations
     unsigned int cur_iteration;         // iteration-thread updates cur_iteration
     int Base_station_rank;
-    int col;
     int row;
+    int col;
+    int alert_events;                   // alert events happen in a term
     std::vector<bool> nodes_avail;      // each EV node is available(true) or not
     std::vector<std::pair<EVNodeMessage *, double> > alert_msgs;    // store alert messages and log time in an iteration 
     FILE* log_fp;

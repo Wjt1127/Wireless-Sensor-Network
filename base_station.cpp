@@ -12,15 +12,20 @@
 #include "mpi_helper.h"
 
 BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_num, int _row, int _col) : 
-    iteration_interval(_iteration_interval), iterations_num(_iterations_num), cur_iteration(0), row(_row), col(_col) {
+    iteration_interval(_iteration_interval), iterations_num(_iterations_num), row(_row), col(_col) {
+    
+    cur_iteration = 0;
+    Base_station_rank = row * col;
+    alert_events = 0;
+    
     log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
         printf( "Could not open file %s\n", LOG_FILE);
         exit(-1);
     }
-
+    
     MPIHelper::create_EV_message_type(&EV_msg_type);
-    std::thread listen_thread(&BStation::listen_report_from_WSN, this);
+    std::thread listen_thread(&BStation::listen_report_from_WSN, this, &alert_events);
     std::thread timer_thread(&BStation::iteration_recorder, this);
 
     listen_thread.join();
@@ -71,7 +76,7 @@ void BStation::iteration_recorder() {
 }
 
 void BStation::listen_report_from_WSN(int *alert_events) {
-    double start_time, recv_time;
+    double recv_time;
     int messages_available;
 
     while (cur_iteration < iterations_num) {
@@ -138,7 +143,10 @@ void BStation::get_neighbor_coord_from_rank(int rank, int adjacent_coords[][2]) 
     for (int i = 0; i < 4; i++) {
         int next_rank = rank + direction[i][0] * col + direction[i][1];
         int next_row = r + direction[i][0], next_col = c + direction[i][1];
-        if (next_rank < 0 || next_rank >= Base_station_rank) adjacent_coords[i][0] = adjacent_coords[i][0] = -1;
+        if (next_rank < 0 || next_rank >= Base_station_rank) {
+            adjacent_coords[i][0] = -1;
+            adjacent_coords[i][0] = -1;
+        }
         else {
             adjacent_coords[i][0] = next_row;
             adjacent_coords[i][1] = next_col;
