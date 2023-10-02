@@ -1,4 +1,8 @@
 ## 先在这里写一下具体设计框架
+## Quick Start
+```bash
+mpiexec -n 10 ./test 3 3 2 10
+```
 
 ## 1. 整个网络的类
 * 所有的EV nodes构成的矩阵结构

@@ -27,20 +27,20 @@ void MPIHelper::recv_method(int neighbor_ranks[4], unsigned int available_port, 
  * create MPI datatype for EVNodeMessage
 */
 void MPIHelper::create_EV_message_type(MPI_Datatype *EV_message_type) {
-    int num_of_fields = 14;
-    int block_lengths[14] = {1, 1, 4, 4 * 2, 4};
-    MPI_Aint displacements[14];
+    int num_of_fields = 6;
+    int block_lengths[6] = {1, 1, 4, 4 * 2, 4, 1};
+    MPI_Aint displacements[6];
     displacements[0] = offsetof(EVNodeMessage, rank);
     displacements[1] = offsetof(EVNodeMessage, matching_neighbours);
     displacements[2] = offsetof(EVNodeMessage, neighbor_ranks);
     displacements[3] = offsetof(EVNodeMessage, neighbor_coords);
-
-    /* wait for complete */
+    displacements[4] = offsetof(EVNodeMessage, neighbor_avail_ports);
+    displacements[5] = offsetof(EVNodeMessage, alert_time);
     
-    MPI_Datatype datatypes[14] = {
+    MPI_Datatype datatypes[6] = {
         MPI_INT,           MPI_INT,           MPI_INT,
-        MPI_INT,           MPI_INT};
-    MPI_Type_create_struct(num_of_fields, block_lengths, displacements,
-                           datatypes, EV_message_type);
+        MPI_INT,           MPI_INT,           MPI_DOUBLE
+        };
+    MPI_Type_create_struct(num_of_fields, block_lengths, displacements, datatypes, EV_message_type);
     MPI_Type_commit(EV_message_type);
 }
