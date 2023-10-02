@@ -64,7 +64,7 @@ public:
         if (nearby_rank == MPI_PROC_NULL)
             info = "NEARBY_LOG: " + now + ", rank " + std::to_string(rank) + " has no available nearby EVnode";
         else 
-            info = info = "NEARBY_LOG: " + now + ", rank " + std::to_string(rank) + " has available nearby EVnode " + std::to_string(nearby_rank);
+            info = "NEARBY_LOG: " + now + ", rank " + std::to_string(rank) + " has available nearby EVnode " + std::to_string(nearby_rank);
         print_log(info);
     }
 
