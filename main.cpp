@@ -1,6 +1,8 @@
 #include <mpi.h>
 #include <iostream>
 #include <mpi_proto.h>
+#include <unistd.h>
+#include <sched.h>
 #include <stdlib.h>
 #include "base_station.h"
 #include "wireless_sensor.h"
@@ -9,6 +11,7 @@
 int main(int argc, char *argv[]) {
     int row, col, world_rank, numprocs;
     int iter_interval, iter_num;
+
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
@@ -24,10 +27,14 @@ int main(int argc, char *argv[]) {
 
     if (world_rank == numprocs - 1) {
         // start a base station
+        printf("rank is %d\t\tpid is %d\n", world_rank, getpid());
+        // sleep(15);
         BStation base_station(iter_interval, iter_num, row, col);
     }
     else {
         // start a sensor
+        printf("rank is %d\t\tpid is %d\n", world_rank, getpid());
+        // sleep(15);
         WirelessSensor WirelessSensor(row, col, world_rank / col, world_rank % col, world_rank, EV_comm);
     }
     

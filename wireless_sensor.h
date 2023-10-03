@@ -99,7 +99,7 @@ typedef struct {
     int neighbor_coords[4][2]; // 2-dims coordinations of neighbour
     int neighbor_avail_ports[4]; // the available port num of neighbor ports
 
-    double alert_time;        // when the event occured
+    long alert_time;        // when the event occured
 } EVNodeMessage;
 
 struct TimeStamp

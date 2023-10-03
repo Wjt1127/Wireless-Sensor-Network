@@ -21,6 +21,7 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     cur_iteration = 0;
     Base_station_rank = row * col;
     alert_events = 0;
+    init_nodes_avail();
 
     log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
@@ -78,11 +79,12 @@ void BStation::listen_report_from_WSN(int *alert_events) {
                 alert_log.msg = &msg[i];
                 alert_log.log_t = recv_time;
                 alert_log.log_iteration = cur_iteration;
-                alert_msgs.push_back(alert_log);
+                     
+                alert_msgs.push(alert_log);
+                
                 print_log("recv alert report from : " + std::to_string(msg[i].rank));
                 std::fflush(log_fp);
-                printf("after push_back %ld\n",alert_msgs.size());
-                fflush(stdout);
+
                 MPI_Irecv(&msg[i], 1, EV_msg_type, i, ALERT_MESSAGE, MPI_COMM_WORLD, &recv_reqs[i]);
             }
         }
@@ -102,7 +104,7 @@ void BStation::send_ternimate_signal(int dest_rank) {
 /**
  * get nearby available nodes
 */
-void BStation::get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list) {
+void BStation::get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list, int cur_iter) {
     for (int i = 0; i < 4; ++i) {
         int neighbor_rank = msg->neighbor_ranks[i];
         if (neighbor_rank != MPI_PROC_NULL) {
@@ -111,7 +113,7 @@ void BStation::get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *nu
             get_neighbor_rank(neighbor_rank, adjacent_rank);
             for (int j = 0; j < 4; j++) {
                 if (adjacent_rank[j] == -1) continue;
-                if (nodes_avail[adjacent_rank[j]] == true) {
+                if (nodes_avail[adjacent_rank[j]][cur_iter % 3] == true) {
                     node_list[(*num_of_list)++] = adjacent_rank[j];
                 }
             }
@@ -149,7 +151,10 @@ void BStation::get_neighbor_rank(int rank, int *adjacent_rank) {
 void BStation::init_nodes_avail()
 {
     nodes_avail.resize(Base_station_rank);
-    std::fill(nodes_avail.begin(), nodes_avail.end(), true);
+    for (int i = 0; i < Base_station_rank; i++) {
+        nodes_avail[i].resize(3);
+        std::fill(nodes_avail[i].begin(), nodes_avail[i].end(), false);
+    }
 }
 
 int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
@@ -167,18 +172,17 @@ void BStation::process_alert_report() {
     printf("enter loop\n");
     fflush(stdout);
 
-    while (cur_iteration < iterations_num || alert_msgs.size() > 0) {
-        if (alert_msgs.size() > 0) {
-            printf("%ld\n",alert_msgs.size());
-            fflush(stdout);
-            BS_log alert = alert_msgs.front();
-            alert_msgs.pop_front();
+    while (cur_iteration < iterations_num || !alert_msgs.empty()) {
+        if (!alert_msgs.empty()) {
+            BS_log alert;
+            alert_msgs.pop(alert);
+
             EVNodeMessage* msg = alert.msg;
             time_t recv_time = alert.log_t;
             int cur_iter = alert.log_iteration;
             num_of_avail = 0;
 
-            get_available_EVNodes(msg, nearby_avail_nodes, &num_of_avail);
+            get_available_EVNodes(msg, nearby_avail_nodes, &num_of_avail, cur_iter);
             std::string start_alert_process = "Base Station start alert process : " + std::to_string(Base_station_rank) + "\n";
             print_log(start_alert_process);
             std::fflush(log_fp);
@@ -190,6 +194,7 @@ void BStation::process_alert_report() {
     }
     
     printf("exit process alert loop \n");
+    // MPI_Finalize();
 };
 
 void BStation::print_log(std::string info) {
@@ -207,6 +212,9 @@ void BStation::do_alert_log(EVNodeMessage* msg, time_t log_time, int *nearby_ava
 
     std::string log_t = ctime(&log_time);
     info = "Logged time : \t\t\t" + log_t + "\n";
+
+    std::string alert_t = ctime(&msg->alert_time);
+    info = "Alert time : \t\t\t" + alert_t + "\n";
 
     std::string report_node = "Reporting Node : " + std::to_string(msg->rank) + "\n";
     print_log(report_node);

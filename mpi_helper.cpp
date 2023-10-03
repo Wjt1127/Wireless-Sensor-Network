@@ -39,7 +39,7 @@ void MPIHelper::create_EV_message_type(MPI_Datatype *EV_message_type) {
     
     MPI_Datatype datatypes[6] = {
         MPI_INT,           MPI_INT,           MPI_INT,
-        MPI_INT,           MPI_INT,           MPI_DOUBLE
+        MPI_INT,           MPI_INT,           MPI_LONG_LONG
         };
     MPI_Type_create_struct(num_of_fields, block_lengths, displacements, datatypes, EV_message_type);
     MPI_Type_commit(EV_message_type);

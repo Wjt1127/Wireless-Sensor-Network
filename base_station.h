@@ -5,6 +5,7 @@
 #include <math.h>
 #include <atomic>
 #include <mpi.h>
+#include <mutex>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,7 @@
 #include <deque>
 
 #include "wireless_sensor.h"
+#include "ring_queue_helper.h"
 
 typedef struct {
     EVNodeMessage *msg;
@@ -35,15 +37,15 @@ private:
     int row;
     int col;
     int alert_events;                   // alert events happen in a term
-    std::vector<bool> nodes_avail;      // each EV node is available(true) or not
-    std::deque<BS_log> alert_msgs;    // store alert messages and log time in an iteration 
+    std::vector<std::vector<bool>> nodes_avail;      // each EV node is available(true) or not
+    CircularQueue<BS_log> alert_msgs;  // store alert messages and log time in an iteration 
     FILE* log_fp;
     MPI_Datatype EV_msg_type;
     const char* LOG_FILE = "./logs/base_station.log";
 
     void process_alert_report();
     void listen_report_from_WSN(int *alert_events);
-    void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list);
+    void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list, int cur_iter);
     void send_ternimate_signal(int dest_rank);
 
     void init_nodes_avail();
