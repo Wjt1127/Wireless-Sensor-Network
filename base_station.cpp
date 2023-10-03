@@ -23,7 +23,6 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     alert_events = 0;
     init_nodes_avail();
 
-
     log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
         printf( "Could not open file %s\n", LOG_FILE);
@@ -52,64 +51,53 @@ void BStation::iteration_recorder() {
     }
 
     // send ternimate signal to all EVNode
-    // for (int i = 0; i < 2; i++)
-
     // begin send terminate until listen thread and alert thread end
-    for (int dest_rank = 0; dest_rank < Base_station_rank; dest_rank++)
-        send_ternimate_signal(dest_rank);
-    
+    while (!alert_msgs.empty()) ;
+    send_ternimate_signal();
+
     MPI_Type_free(&EV_msg_type);
 }
 
 void BStation::listen_report_from_WSN(int *alert_events) {
     time_t recv_time;
-    MPI_Request recv_reqs[Base_station_rank];
-    EVNodeMessage msg[Base_station_rank];
-    MPI_Status stats[Base_station_rank];
+    EVNodeMessage msg;
+    MPI_Status stat;
     int flag = 0;
 
-    for (int i = 0; i < Base_station_rank; i++) {
-        MPI_Irecv(&msg[i], 1, EV_msg_type, i, ALERT_MESSAGE, MPI_COMM_WORLD, &recv_reqs[i]);
-    }
-    
     while (cur_iteration < iterations_num) {
         // check if a EVNode has sent an alert message
-        flag = 0;
-        for (int i = 0; i < Base_station_rank; i++) {
-            MPI_Test(&recv_reqs[i], &flag, &stats[i]);
-            if (flag) {
-                recv_time = time(nullptr);
-                BS_log alert_log;
-                alert_log.msg = &msg[i];
-                alert_log.log_t = recv_time;
-                alert_log.log_iteration = cur_iteration;
-                     
-                alert_msgs.push(alert_log);
-                
-                print_log("recv alert report from : " + std::to_string(msg[i].rank));
-                std::fflush(log_fp);
+        MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
 
-                MPI_Irecv(&msg[i], 1, EV_msg_type, i, ALERT_MESSAGE, MPI_COMM_WORLD, &recv_reqs[i]);
-            }
+        while (flag) {
+            MPI_Recv(&msg, 1, EV_msg_type, MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &stat);
+            recv_time = time(nullptr);
+            BS_log alert_log;
+            alert_log.msg = &msg;
+            alert_log.log_t = recv_time;
+            alert_log.log_iteration = cur_iteration;
+            alert_msgs.push(alert_log);
+            
+            print_log("recv alert report from : " + std::to_string(msg.rank));
+            std::fflush(log_fp);
+
+            // keep checking if more messages available and avoid losing message when cur_iteration >= iterations_num
+            MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
         }
-    }
-
-    for (int i = 0; i < Base_station_rank; i++) {
-        MPI_Cancel(&recv_reqs[i]);
     }
 }
 
 /**
  * send ternimate signal to all EVnode
 */
-void BStation::send_ternimate_signal(int dest_rank) {
+void BStation::send_ternimate_signal() {
     char buf = '1';
     // send message to terminate
-    MPI_Request req;
-    MPI_Status stat;
     printf("send terminate\n");
-    MPI_Isend(&buf, 1, MPI_CHAR, dest_rank, TERMINATE, MPI_COMM_WORLD, &req);
-    MPI_Wait(&req, &stat);
+
+    for (int i = 0; i < Base_station_rank; i++) {
+        MPI_Send(&buf, 1, MPI_CHAR, i, TERMINATE, MPI_COMM_WORLD);
+    }
+    
     printf("send terminate ok\n");
 }
 
@@ -200,10 +188,7 @@ void BStation::process_alert_report() {
             print_log(start_alert_process);
             std::fflush(log_fp);
 
-            MPI_Request req;
-            MPI_Status stat;
-            MPI_Isend(&nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD, &req);
-            MPI_Wait(&req, &stat);
+            MPI_Send(&nearby_avail_nodes[0] , 1 , MPI_INT, msg->rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD);
 
             do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iter);
         }
