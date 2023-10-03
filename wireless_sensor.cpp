@@ -121,7 +121,7 @@ void WirelessSensor::report_availability()
             avail_table.pop_front();
         }
         avail_table.push_back(log_entry);
-
+        
         logger.avail_log(rank, ctm, avail);
 
         if (avail == 0) 
@@ -189,6 +189,13 @@ void WirelessSensor::response_availability()
                     MPI_Irecv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &recv_reqs[i]);
                 }
             }
+        }
+    }
+
+    for (int i = 0; i < 4; i++) {
+        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+            MPI_Cancel(&recv_reqs[i]);
+            MPI_Cancel(&send_reqs[i]);
         }
     }
 }
@@ -261,10 +268,10 @@ void WirelessSensor::send_alert_to_base(int base_station_rank)
  * once the node receives a termination message, the node cleans up and exits.
  */
 void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
-    char buf[2];
+    char buf;
     MPI_Request req;
     MPI_Status stat;
-    MPI_Irecv(buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &req);
+    MPI_Irecv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &req);
     MPI_Wait(&req, &stat);
     logger.terminate_log(rank);
     printf("stop\n");

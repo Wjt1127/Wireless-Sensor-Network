@@ -23,6 +23,7 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     alert_events = 0;
     init_nodes_avail();
 
+
     log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
         printf( "Could not open file %s\n", LOG_FILE);
@@ -34,9 +35,9 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     std::thread timer_thread(&BStation::iteration_recorder, this);
     std::thread process_alert_thread(&BStation::process_alert_report, this);
 
-    timer_thread.join();
     listen_thread.join();
     process_alert_thread.join();
+    timer_thread.join();
 }
 
 BStation::~BStation() {
@@ -51,7 +52,9 @@ void BStation::iteration_recorder() {
     }
 
     // send ternimate signal to all EVNode
-    for (int i = 0; i < 2; i++)
+    // for (int i = 0; i < 2; i++)
+
+    // begin send terminate until listen thread and alert thread end
     for (int dest_rank = 0; dest_rank < Base_station_rank; dest_rank++)
         send_ternimate_signal(dest_rank);
     
@@ -90,18 +93,22 @@ void BStation::listen_report_from_WSN(int *alert_events) {
             }
         }
     }
+
+    for (int i = 0; i < Base_station_rank; i++) {
+        MPI_Cancel(&recv_reqs[i]);
+    }
 }
 
 /**
  * send ternimate signal to all EVnode
 */
 void BStation::send_ternimate_signal(int dest_rank) {
-    char buf[2] = "1";
+    char buf = '1';
     // send message to terminate
     MPI_Request req;
     MPI_Status stat;
     printf("send terminate\n");
-    MPI_Isend(buf, 1, MPI_CHAR, dest_rank, TERMINATE, MPI_COMM_WORLD, &req);
+    MPI_Isend(&buf, 1, MPI_CHAR, dest_rank, TERMINATE, MPI_COMM_WORLD, &req);
     MPI_Wait(&req, &stat);
     printf("send terminate ok\n");
 }
@@ -178,7 +185,7 @@ void BStation::process_alert_report() {
     printf("enter loop\n");
     fflush(stdout);
 
-    while (cur_iteration < iterations_num) {
+    while (cur_iteration < iterations_num || !alert_msgs.empty()) {
         if (!alert_msgs.empty()) {
             BS_log alert;
             alert_msgs.pop(alert);
@@ -203,7 +210,6 @@ void BStation::process_alert_report() {
     }
     
     printf("exit process alert loop \n");
-    // MPI_Finalize();
 };
 
 void BStation::print_log(std::string info) {

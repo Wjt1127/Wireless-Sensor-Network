@@ -37,6 +37,7 @@ private:
     int row;
     int col;
     int alert_events;                   // alert events happen in a term
+    
     std::vector<std::vector<bool>> nodes_avail;      // each EV node is available(true) or not
     CircularQueue<BS_log> alert_msgs;  // store alert messages and log time in an iteration 
     FILE* log_fp;
