@@ -95,9 +95,14 @@ void BStation::listen_report_from_WSN(int *alert_events) {
  * send ternimate signal to all EVnode
 */
 void BStation::send_ternimate_signal(int dest_rank) {
-    char buf = '\0';
+    char buf[2] = "1";
     // send message to terminate
-    MPI_Send(&buf, 1, MPI_CHAR, dest_rank, TERMINATE, MPI_COMM_WORLD);
+    MPI_Request req;
+    MPI_Status stat;
+    printf("send terminate\n");
+    MPI_Isend(buf, 1, MPI_CHAR, dest_rank, TERMINATE, MPI_COMM_WORLD, &req);
+    MPI_Wait(&req, &stat);
+    printf("send terminate ok\n");
 }
 
 

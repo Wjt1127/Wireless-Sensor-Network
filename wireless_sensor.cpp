@@ -181,6 +181,7 @@ void WirelessSensor::response_availability()
         int flag = 0;
         for (int i = 0; i < 4; i++) {
             if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+                flag = 0;
                 MPI_Test(&recv_reqs[i], &flag, &stats[i]);
                 if (flag) {
                     my_avail[i] = avail_table.empty()? 0 : avail_table.back().availability;
@@ -222,10 +223,11 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
     MPI_Status send_stats[4];
     MPI_Status recv_stats[4];
     int valid_reqs_num = 0;
+    unsigned int avail = 0;
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-            MPI_Isend(&(avail_table.back().availability), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &send_reqs[valid_reqs_num]);
+            MPI_Isend(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &send_reqs[valid_reqs_num]);
             MPI_Irecv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &recv_reqs[valid_reqs_num]);
             valid_reqs_num++;
         }
@@ -259,8 +261,10 @@ void WirelessSensor::send_alert_to_base(int base_station_rank, EVNodeMessage* al
  */
 void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
     char buf[2];
+    MPI_Request req;
     MPI_Status stat;
-    MPI_Recv(buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &stat);
+    MPI_Irecv(buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &req);
+    MPI_Wait(&req, &stat);
     logger.terminate_log(rank);
     stop = 1;
 }
