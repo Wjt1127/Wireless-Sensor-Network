@@ -152,7 +152,7 @@ void WirelessSensor::prompt_availability()
             get_message_from_neighbor(msg);
             to_alert = prompt_alert_or_not(msg, avail_neighbor, &num_of_avail_neighbor);
             if (to_alert) {
-                send_alert_to_base(row * col, msg);
+                send_alert_to_base(row * col);
                 listen_nearby_from_base(row * col);
             }
         }
@@ -244,15 +244,16 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
     }
 }
 
-void WirelessSensor::send_alert_to_base(int base_station_rank, EVNodeMessage* alert_msg) 
+void WirelessSensor::send_alert_to_base(int base_station_rank) 
 {   
     // single to single communication
+    EVNodeMessage alert_msg = *msg;
     MPI_Request send_req;
     MPI_Status status;
     logger.alert_log(rank);
-    alert_msg->alert_time = time(nullptr);
-    MPI_Isend(alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &send_req);
-    MPI_Wait( &send_req , &status);
+    alert_msg.alert_time = time(nullptr);
+    MPI_Isend(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &send_req);
+    MPI_Wait(&send_req , &status);
 }
 
 /**
@@ -266,6 +267,7 @@ void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
     MPI_Irecv(buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &req);
     MPI_Wait(&req, &stat);
     logger.terminate_log(rank);
+    printf("stop\n");
     stop = 1;
 }
 
@@ -275,7 +277,9 @@ void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
 void WirelessSensor::listen_nearby_from_base(int base_station_rank)
 {
     int nearby_rank;
+    MPI_Request req;
     MPI_Status stat;
-    MPI_Recv(&nearby_rank, 1, MPI_INT, base_station_rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD, &stat);
+    MPI_Irecv(&nearby_rank, 1, MPI_INT, base_station_rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD, &req);
+    MPI_Wait(&req, &stat);
     logger.nearby_log(rank, nearby_rank);
 }

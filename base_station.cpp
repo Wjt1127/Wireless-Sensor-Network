@@ -51,6 +51,7 @@ void BStation::iteration_recorder() {
     }
 
     // send ternimate signal to all EVNode
+    for (int i = 0; i < 2; i++)
     for (int dest_rank = 0; dest_rank < Base_station_rank; dest_rank++)
         send_ternimate_signal(dest_rank);
     
@@ -177,7 +178,7 @@ void BStation::process_alert_report() {
     printf("enter loop\n");
     fflush(stdout);
 
-    while (cur_iteration < iterations_num || !alert_msgs.empty()) {
+    while (cur_iteration < iterations_num) {
         if (!alert_msgs.empty()) {
             BS_log alert;
             alert_msgs.pop(alert);
@@ -192,7 +193,10 @@ void BStation::process_alert_report() {
             print_log(start_alert_process);
             std::fflush(log_fp);
 
-            MPI_Send(&nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD);
+            MPI_Request req;
+            MPI_Status stat;
+            MPI_Isend(&nearby_avail_nodes[0] , 1 , MPI_INT , msg->rank , NEARBY_AVAIL_MESSAGE , MPI_COMM_WORLD, &req);
+            MPI_Wait(&req, &stat);
 
             do_alert_log(msg, recv_time, nearby_avail_nodes, num_of_avail, cur_iter);
         }
