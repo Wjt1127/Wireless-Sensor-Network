@@ -155,6 +155,7 @@ private:
     void send_alert_to_base(int base_station_rank);
     void get_message_from_neighbor(EVNodeMessage *msg);
     void process_neighbor_message();
+    void listen_message();
     void listen_terminal_from_base(int base_station_rank); 
     void listen_nearby_from_base(int base_station_rank);
 
