@@ -202,7 +202,7 @@ void WirelessSensor::response_availability()
     while (!stop) {
         for (int i = 0; i < 4; i++) {
             if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-                MPI_Iprobe(msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, MPI_COMM_WORLD, &flags[i], MPI_STATUS_IGNORE);
+                MPI_Iprobe(msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &flags[i], MPI_STATUS_IGNORE);
 
                 if (flags[i]) {
                     MPI_Recv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &stats[i]);
@@ -255,9 +255,9 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
             printf("rank %d: send prompt to %d\n", rank, msg->neighbor_ranks[i]);
-            MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, EV_comm);
+            MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm);
             printf("rank %d: recv prompt from %d\n", rank, msg->neighbor_ranks[i]);
-            MPI_Recv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, EV_comm, &recv_stats[valid_reqs_num]);
+            MPI_Recv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &recv_stats[valid_reqs_num]);
             printf("rank %d: recvd prompt from %d\n", rank, msg->neighbor_ranks[i]);
             valid_reqs_num++;
         }
