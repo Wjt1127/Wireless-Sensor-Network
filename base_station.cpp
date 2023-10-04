@@ -168,7 +168,7 @@ int format_to_datetime(time_t t, char* out_buf, size_t out_buf_len) {
  * and send available nearby Nodes to report EVnode
 */
 void BStation::process_alert_report() {
-    int nearby_avail_nodes[Base_station_rank];
+    int nearby_avail_nodes[Base_station_rank] = {-1};
     int num_of_avail = 0;
     printf("enter loop\n");
     fflush(stdout);
