@@ -202,7 +202,7 @@ void WirelessSensor::response_availability()
     while (!stop) {
         for (int i = 0; i < 4; i++) {
             if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-                MPI_Iprobe(msg->neighbor_ranks[i], ALERT_MESSAGE, MPI_COMM_WORLD, &flags[i], MPI_STATUS_IGNORE);
+                MPI_Iprobe(msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, MPI_COMM_WORLD, &flags[i], MPI_STATUS_IGNORE);
 
                 if (flags[i]) {
                     MPI_Recv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &stats[i]);
