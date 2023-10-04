@@ -138,7 +138,7 @@ private:
     int x;
     int y;
     int rank;
-    int ports_num = 10;
+    int ports_num = 5;
     std::vector<int> ports_avail;
     std::deque<AvailabilityLog> avail_table;
     MPI_Comm EV_comm;

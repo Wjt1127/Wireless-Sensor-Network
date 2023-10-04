@@ -1,5 +1,5 @@
 CC = mpic++
-FLAGS = -Wall -O2 -g
+FLAGS = -Wall -O0 -g
 LIBS = -pthread
 SOURCE = *.cpp *.h
 TARGET = test

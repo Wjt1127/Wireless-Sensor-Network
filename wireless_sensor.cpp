@@ -27,7 +27,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
     MPIHelper::create_EV_message_type(&EV_msg_type);
     stop = 0;
 
-    std::thread report_thread(&WirelessSensor::report_availability, this);
+    // std::thread report_thread(&WirelessSensor::report_availability, this);
     std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
     std::thread respond_thread(&WirelessSensor::response_availability, this);
     std::thread listen_thread(&WirelessSensor::listen_terminal_from_base, this, row * col);
@@ -36,7 +36,7 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
         port_threads[i] = std::thread(&WirelessSensor::port_simulation, this, i);
     }
 
-    report_thread.join();
+    // report_thread.join();
     prompt_thread.join();
     respond_thread.join();
     listen_thread.join();
@@ -79,22 +79,50 @@ void WirelessSensor::init_ports()
     std::fill(ports_avail.begin(), ports_avail.end(), true);
 }
 
-void WirelessSensor::port_simulation(int port_id)
-{
-    while (!stop) {
-        int time = rand() % 30;
-        if (!ports_avail[port_id])
-        {
-            time += 60;
-        }
-        sleep(time);
-        ports_avail[port_id] = !ports_avail[port_id];
-    }
-}
 
 /**
  *  periodically updates and report the availability of node to shared array
 */
+void WirelessSensor::port_simulation(int port_id)
+{
+    AvailabilityLog log_entry;
+    time_t now;
+    tm* ltm;
+    char* ctm;
+    int avail;
+
+    while (!stop) {
+        if (port_id == ports_num - 1) {
+            now = time(nullptr);
+            ltm = localtime(&now);
+            ctm = ctime(&now);
+            avail = std::count_if(ports_avail.begin(), ports_avail.end(), [](bool i){return i;});
+            log_entry.time.year = ltm->tm_year;
+            log_entry.time.month = ltm->tm_mon;
+            log_entry.time.day = ltm->tm_mday;
+            log_entry.time.minute = ltm->tm_min;
+            log_entry.time.second = ltm->tm_sec;
+            log_entry.availability = avail;
+
+            while (avail_table.size() >= FIXED_ARRAY_SIZE) 
+            {
+                avail_table.pop_front();
+            }
+            avail_table.push_back(log_entry);
+
+            logger.avail_log(rank, ctm, avail);
+
+            if (avail == 0) 
+            {
+                ++full_log_num;
+            }
+        }
+
+        sleep(AVAILABILITY_TIME_CYCLE);
+        ports_avail[port_id] = rand() % 2;
+    }
+}
+
 void WirelessSensor::report_availability()
 {
     AvailabilityLog log_entry;
@@ -161,35 +189,36 @@ void WirelessSensor::prompt_availability()
 
 void WirelessSensor::response_availability()
 {
-    MPI_Status stat_probe;
-    MPI_Status stat_prompt;
-    int source;
-    unsigned int my_avail;
-    unsigned int avail;
+    MPI_Status stats[4];
+    int flags[4];
+    unsigned int my_avail[4];
+    int avail;
     
     /**
      *  if any recv_req is finished, send avail message to that source EVnode, 
      *  and start a new recv_req listening to that EVnode
     */
     while (!stop) {
+        for (int i = 0; i < 4; i++) {
+            if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+                MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flags[i], MPI_STATUS_IGNORE);
 
-        MPI_Probe(MPI_ANY_SOURCE, PROMPT_NEIGHBOR_MESSAGE, EV_comm, &stat_probe);
-        source = stat_probe.MPI_SOURCE;
+                if (flags[i]) {
+                    MPI_Recv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &stats[i]);
+                    if (avail_table.empty()) {
+                        my_avail[i] = 0;
+                    }
+                    else {
+                        AvailabilityLog log = avail_table.back();
+                        my_avail[i] = log.availability;
+                    }
 
-        printf("neighbor %d: recv prompt to %d\n", rank, source);
-        MPI_Recv(&avail, 1, MPI_UNSIGNED, source, PROMPT_NEIGHBOR_MESSAGE, EV_comm, &stat_prompt);
-        printf("neighbor %d: send prompt to %d\n", rank, source);
-
-        if (avail_table.empty()) {
-            my_avail = 0;
+                    printf("neighbor %d: avail is %d\n", msg->neighbor_ranks[i], avail);
+                    MPI_Send(&(my_avail[i]), 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm);
+                    printf("neighbor %d: sended prompt to %d\n", msg->neighbor_ranks[i], rank);
+                }
+            }
         }
-        else {
-            AvailabilityLog log = avail_table.back();
-            my_avail = log.availability;
-        }
-        printf("neighbor %d: avail is %d\n", rank, my_avail);
-        MPI_Send(&my_avail, 1, MPI_UNSIGNED, source, AVAIL_MESSAGE, EV_comm);
-        printf("neighbor %d: sended prompt to %d\n", rank, source);
     }
 }
 
@@ -233,7 +262,6 @@ void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
         }
     }
 
-    
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
             logger.neighbor_log(rank, msg->neighbor_ranks[i], msg->neighbor_avail_ports[i]);
@@ -245,10 +273,11 @@ void WirelessSensor::send_alert_to_base(int base_station_rank)
 {   
     // single to single communication
     EVNodeMessage alert_msg = *msg;
+    // MPI_Request req;
     logger.alert_log(rank);
     alert_msg.alert_time = time(nullptr);
+    // MPI_Isend(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &req);
     MPI_Send(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
-    
 }
 
 /**
@@ -257,13 +286,20 @@ void WirelessSensor::send_alert_to_base(int base_station_rank)
  */
 void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
     char buf;
+    int flag = 0;
     MPI_Status status;
 
-    MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
+    while (!stop) {
+        MPI_Iprobe(row * col, TERMINATE, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
+        if (flag) {
+            MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
 
-    logger.terminate_log(rank);
-    printf("stop\n");
-    stop = 1;
+            logger.terminate_log(rank);
+            printf("stop\n");
+            stop = 1;
+            break;
+        }
+    }
 }
 
 /**
