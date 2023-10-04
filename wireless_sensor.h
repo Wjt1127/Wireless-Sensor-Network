@@ -49,7 +49,7 @@ public:
         std::string now = ctime(&t);
         now.pop_back();
         std::string info = "NEIGHBOR_LOG: " + now + ", rank " + std::to_string(rank) + "\'s neighbor " + std::to_string(neighbor)
-            + "\'s availability is" + std::to_string(avail);
+            + "\'s availability is " + std::to_string(avail);
         print_log(info);
     }
 
@@ -162,9 +162,11 @@ private:
     void port_simulation(int port_id);
     void report_availability();
     void prompt_availability();
-    void response_availability();
+    void response_availability(int source);
+    void listen_availability_from_neighbor(int source, std::atomic_int *responsed);
 
     bool prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int* num_of_avail_neighbor);
+    bool prompt_alert_or_not(EVNodeMessage* msg);
 
 };
 
