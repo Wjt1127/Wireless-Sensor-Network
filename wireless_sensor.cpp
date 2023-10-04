@@ -49,6 +49,7 @@ WirelessSensor::~WirelessSensor()
 {
     delete msg;
     MPI_Type_free(&EV_msg_type);
+    MPI_Comm_free(&grid_comm);
 }
 
 void WirelessSensor::get_neighbors()
@@ -201,7 +202,7 @@ void WirelessSensor::response_availability()
     while (!stop) {
         for (int i = 0; i < 4; i++) {
             if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-                MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flags[i], MPI_STATUS_IGNORE);
+                MPI_Iprobe(msg->neighbor_ranks[i], ALERT_MESSAGE, MPI_COMM_WORLD, &flags[i], MPI_STATUS_IGNORE);
 
                 if (flags[i]) {
                     MPI_Recv(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm, &stats[i]);
@@ -286,20 +287,12 @@ void WirelessSensor::send_alert_to_base(int base_station_rank)
  */
 void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
     char buf;
-    int flag = 0;
     MPI_Status status;
 
-    while (!stop) {
-        MPI_Iprobe(row * col, TERMINATE, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
-        if (flag) {
-            MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
-
-            logger.terminate_log(rank);
-            printf("stop\n");
-            stop = 1;
-            break;
-        }
-    }
+    MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
+    logger.terminate_log(rank);
+    printf("stop\n");
+    stop = 1;
 }
 
 /**
