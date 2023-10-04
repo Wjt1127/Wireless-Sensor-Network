@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <bits/types/time_t.h>
+#include <sys/time.h>
 #include <mpi.h>
 #include <fstream>
 #include <iostream>
@@ -7,6 +8,7 @@
 #include <ratio>
 #include <string>
 #include <unistd.h>
+#include<stdlib.h>
 #include <thread>
 #include <ctime>
 
@@ -90,6 +92,8 @@ void WirelessSensor::port_simulation(int port_id)
     char* ctm;
     int avail;
 
+    // stagger different mpi processes
+    srand(getpid());
     while (!stop) {
         if (port_id == ports_num - 1) {
             now = time(nullptr);
@@ -111,8 +115,9 @@ void WirelessSensor::port_simulation(int port_id)
 
             logger.avail_log(rank, ctm, avail);
 
-            if (avail == 0) 
+            if (avail <= consider_full) 
             {
+                msg->avail_ports = avail;
                 ++full_log_num;
             }
         }
@@ -131,7 +136,6 @@ void WirelessSensor::report_availability()
     int avail;
     
     while (!stop) {
-
         now = time(nullptr);
         ltm = localtime(&now);
         ctm = ctime(&now);
@@ -234,9 +238,9 @@ bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
-        if (msg->neighbor_avail_ports[i] > 0) {
+        avail_neighbor[(*num_of_avail_neighbor)++] = msg->neighbor_ranks[i];
+        if (msg->neighbor_avail_ports[i] > consider_full) {
             isprompt = false;
-            avail_neighbor[(*num_of_avail_neighbor)++] = msg->neighbor_ranks[i];
         }
     }
 
@@ -248,7 +252,7 @@ bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg) {
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
-        if (msg->neighbor_avail_ports[i] > 0) {
+        if (msg->neighbor_avail_ports[i] > consider_full) {
             isprompt = false;
         }
     }
@@ -276,7 +280,10 @@ void WirelessSensor::send_alert_to_base(int base_station_rank)
     EVNodeMessage alert_msg = *msg;
     // MPI_Request req;
     logger.alert_log(rank);
-    alert_msg.alert_time = time(nullptr);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    alert_msg.alert_time_s = tv.tv_sec;
+    alert_msg.alert_time_us = tv.tv_usec;
     // MPI_Isend(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &req);
     MPI_Send(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
 }

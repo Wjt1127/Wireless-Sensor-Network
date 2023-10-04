@@ -94,12 +94,14 @@ private:
 
 typedef struct {
     int rank;
+    int avail_ports;
     int matching_neighbours;  // size of neighbour(if the node at edge, matching_neighbours may be 2 or 3)
     int neighbor_ranks[4];  // rank of neighbours
     int neighbor_coords[4][2]; // 2-dims coordinations of neighbour
     int neighbor_avail_ports[4]; // the available port num of neighbor ports
 
-    long alert_time;        // when the event occured
+    long alert_time_s;          // when the event occured (s)
+    long alert_time_us;         // us
 } EVNodeMessage;
 
 struct TimeStamp
@@ -139,6 +141,7 @@ private:
     int y;
     int rank;
     int ports_num = 5;
+    int consider_full = 1;
     std::vector<int> ports_avail;
     std::deque<AvailabilityLog> avail_table;
     MPI_Comm EV_comm;

@@ -1,24 +1,69 @@
-## 先在这里写一下具体设计框架
 ## Quick Start
+* To compile, run `make`
+
+* To execute, run `mpirun -np P prog X Y T I`
+
+Where ***P*** is number of processors, 
+and ***X*** is number of rows of the grid and ***Y*** is the number of columns, and ***X * Y + 1 = P***. 
+
+***T*** is the time of ech iteration.
+
+***I*** is the number of iterations to run for.
+
+* For example:
+
 ```bash
-mpiexec -n 10 ./test 3 3 2 10
+make all
+mpiexec -n 21 ./test 4 5 50 10
+```
+## Base Station Log
+```
+------------------------------------------------------------------------------------------------------------
+Iteration : 4
+Logged time : 					Thu Oct  5 01:14:02 2023
+Alert reported time : 			Thu Oct  5 01:14:02 2023
+Number of adjacent node : 4
+Availability to be considered full : 1
+
+Reporting Node 	 Coord 		 Port Value 	 Available Port 	 IPv4
+13				 (2,3)		 5				 0					 192.168.195.189
+
+Adjacent Nodes 	 Coord 		 Port Value 	 Available Port 	 IPv4
+8				 (1,3)		 5				 1					 192.168.195.189
+18				 (3,3)		 5				 1					 192.168.195.189
+12				 (2,2)		 5				 1					 192.168.195.189
+14				 (2,4)		 5				 1					 192.168.195.189
+
+Nearby Nodes 	 Coord 	
+3				 (0,3)
+7				 (1,2)
+9				 (1,4)
+11				 (2,1)
+17				 (3,2)
+19				 (3,4)
+
+Available station nearby (no report received in last 3 iteration) : 3,7,9,11,17,19
+Communication Time (seconds) : 0.000541
+Total Messages send between reporting node and base station: 2
+------------------------------------------------------------------------------------------------------------
 ```
 
-## 1. 整个网络的类
-* 所有的EV nodes构成的矩阵结构
-* base station
-* 每一个节点对应一个进程，初始化时启动所有进程
 
-## 2. base station进程/类
-* 接收信息，处理，发送信息
-* 处理 alert 消息，要回复附近没有空闲节点；周期内没有收到消息，则认为有空闲节点
+## Install MPICH
+```bash
+$ wget https://www.mpich.org/static/downloads/4.1/mpich-4.1.tar.gz
 
-## 3. EV node进程/类
-* 打印充电点可用信息
-* 与其他EV node通信
-* 与base station通信
-* 收到termination时进程结束
+$ tar -zxvf mpich-4.1.tar.gz
+$ cd mpich-4.1/
 
-## 4. 测试
-* EV node的 k 个充电端口，用 k 个线程模拟端口可用性的变化
-* 数据集主要就是每个EV node随时间变化的可用节点情况，EV node进程隔一段时间读一条，作为自己的log mesg
+$ ./configure --disable-fortran --prefix=/usr
+
+$ make -j8
+$ make install
+
+$ sudo vim ~/.bashrc
+
+# add : export  PATH=$PATH:/usr
+
+$ sudo source ~/.bashrc
+```

@@ -13,13 +13,15 @@
 #include <time.h>
 #include <vector>
 #include <deque>
+#include <set>
+#include <unordered_map>
 
 #include "wireless_sensor.h"
 #include "ring_queue_helper.h"
 
 typedef struct {
-    EVNodeMessage *msg;
-    time_t log_t;
+    EVNodeMessage msg;
+    timeval log_t;
     int log_iteration;
 } BS_log;
 
@@ -37,9 +39,10 @@ private:
     int row;
     int col;
     int alert_events;                   // alert events happen in a term
+    int consider_full = 1;
 
-    std::vector<std::vector<bool>> nodes_avail;      // each EV node is available(true) or not
-    CircularQueue<BS_log> alert_msgs;  // store alert messages and log time in an iteration 
+    std::unordered_map<long long, bool> send_alert;      // {rank, iteration} -> send alert
+    CircularQueue<BS_log> alert_msgs;   // store alert messages and log time in an iteration 
     FILE* log_fp;
     MPI_Datatype EV_msg_type;
     const char* LOG_FILE = "./logs/base_station.log";
@@ -54,9 +57,10 @@ private:
     void get_neighbor_coord_from_rank(int rank, int adjacent_coords[][2]);
     void get_neighbor_rank(int rank, int *adjacent_rank);
     
-    void do_alert_log(EVNodeMessage* msg, time_t log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration);
+    void do_alert_log(EVNodeMessage* msg, timeval log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration);
     void do_terminate_log();
     void print_log(std::string info);
+    bool check_last_3iter(int rank, int iter);
 };
 
 
