@@ -26,6 +26,7 @@ BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_nu
     cur_iteration = 0;
     Base_station_rank = row * col;
     alert_events = 0;
+    iprobe_count = 0;
 
     log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
@@ -59,6 +60,13 @@ void BStation::iteration_recorder() {
     while (!alert_msgs.empty()) ;
     send_ternimate_signal();
 
+    print_log("******************* Summary ******************* \nnumber of reported messages : " + std::to_string(alert_events) + \
+            ",and a summary of events generated : " + std::to_string(alert_events));
+    print_log("MPI_Send counts : " + std::to_string(alert_events + Base_station_rank));
+    print_log("MPI_Recv counts : " + std::to_string(alert_events));
+    print_log("MPI_Iprobe counts : " + std::to_string(iprobe_count));
+    print_log("*********************************************** \n");
+
     MPI_Type_free(&EV_msg_type);
 }
 
@@ -72,7 +80,7 @@ void BStation::listen_report_from_WSN(int *alert_events) {
     while (cur_iteration < iterations_num) {
         // check if a EVNode has sent an alert message
         MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flag, &probe_stat);
-
+        ++iprobe_count;
         while (flag) {
             MPI_Recv(&msg, 1, EV_msg_type, probe_stat.MPI_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &stat);
             gettimeofday(&recv_time, NULL);    
@@ -82,14 +90,17 @@ void BStation::listen_report_from_WSN(int *alert_events) {
             alert_log.log_t = recv_time;
             alert_log.log_iteration = cur_iteration;
             alert_msgs.push(alert_log);
-            
+            (*alert_events)++;
             // print_log("recv alert report from : " + std::to_string(msg.rank));
             // std::fflush(log_fp);
             send_alert.emplace(((long long)msg.rank << 32l) | alert_log.log_iteration, true);
             // keep checking if more messages available and avoid losing message when cur_iteration >= iterations_num
             
+            sleep(iteration_interval/10);
             MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flag, &probe_stat);
+            ++iprobe_count;
         }
+        if (!flag) sleep(iteration_interval/10);
     }
 }
 

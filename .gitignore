@@ -1,4 +1,5 @@
 test
-logs
+logs/*
 .out
+*.mpiP
 .vscode

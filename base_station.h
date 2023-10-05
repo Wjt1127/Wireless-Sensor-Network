@@ -38,7 +38,8 @@ private:
     int Base_station_rank;
     int row;
     int col;
-    int alert_events;                   // alert events happen in a term
+    int alert_events = 0;                   // alert events happen in a term
+    std::atomic<int> iprobe_count;
     int consider_full = 1;
 
     std::unordered_map<long long, bool> send_alert;      // {rank, iteration} -> send alert
