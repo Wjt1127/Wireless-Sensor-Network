@@ -260,7 +260,7 @@ void BStation::do_alert_log(EVNodeMessage* msg, timeval recv_time, int *nearby_a
     info = "Logged time : \t\t\t\t\t" + time_log;
     print_log(info);
 
-    std::string alert_t = ctime(&(msg->alert_time_s));
+    std::string alert_t = ctime(&(msg->alert_time));
     alert_t.pop_back();
     info = "Alert reported time : \t\t\t" + alert_t;
     print_log(info);
@@ -314,11 +314,6 @@ void BStation::do_alert_log(EVNodeMessage* msg, timeval recv_time, int *nearby_a
         if (check_last_3iter(nearby_avail_nodes[i], cur_iter)) info += std::to_string(nearby_avail_nodes[i]) + ",";
     }
     info.pop_back();
-    print_log(info);
-
-    info = "Communication Time (seconds) : ";
-    double cost = (recv_time.tv_sec - msg->alert_time_s) * 1.0 + (double)(recv_time.tv_usec - msg->alert_time_us) / 1000000.0;
-    info += std::to_string(cost);
     print_log(info);
 
     print_log("Total Messages send between reporting node and base station: 2");

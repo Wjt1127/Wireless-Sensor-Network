@@ -208,10 +208,8 @@ void EVNode::send_alert(int base_station_rank)
     EVNodeMessage alert_msg = *msg;
     // MPI_Request req;
     logger.alert_log(rank);
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    alert_msg.alert_time_s = tv.tv_sec;
-    alert_msg.alert_time_us = tv.tv_usec;
+    // alert time
+    alert_msg.alert_time = time(nullptr);;
     // MPI_Isend(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &req);
     MPI_Send(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
 }

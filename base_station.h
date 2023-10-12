@@ -53,13 +53,11 @@ private:
     void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list, int cur_iter);
     void send_ternimate_signal();
 
-    void init_nodes_avail();
     void iteration_recorder();
     void get_neighbor_coord_from_rank(int rank, int adjacent_coords[][2]);
     void get_neighbor_rank(int rank, int *adjacent_rank);
     
     void do_alert_log(EVNodeMessage* msg, timeval log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration);
-    void do_terminate_log();
     void print_log(std::string info);
     bool check_last_3iter(int rank, int iter);
 };
