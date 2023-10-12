@@ -9,7 +9,7 @@ EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
     row(r_), col(c_), x(x_), y(y_), rank(rank_), EV_comm(ev_comm),
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
-    msg = new EVNodeMessage;
+    msg = new EVNodeMesg;
     msg->rank = rank_;
     this->init_neighbors();
     this->init_ports();
@@ -88,9 +88,13 @@ void EVNode::port_simulation(int port_id)
             }
             avail_table.push_back(log_entry);
 
-            logger.avail_log(rank, ctime(&log_entry.timestamp), avail);
+            std::string now = ctime(&log_entry.timestamp);
+            now.pop_back();
+            std::string info = now + ", AVAILABILITY_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
+                + ")'s availability is " + std::to_string(avail);
+            logger.print_log(info);
 
-            if (avail <= consider_full) 
+            if (avail <= full_threshold)
             {
                 msg->avail_ports = avail;
                 ++full_log_num;
@@ -115,8 +119,15 @@ void EVNode::send_prompt()
         if (full_log_num > 0)
         {
             --full_log_num;
-            logger.prompt_log(rank);
             avail = 0;
+
+            /* print prompt information log */
+            time_t t = time(nullptr);
+            std::string now = ctime(&t);
+            now.pop_back();
+            std::string info = now + ", PROMPT_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y) + ") starts to prompt";
+            logger.print_log(info);
+            
             for (int i = 0; i < 4; i++) {
                 if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
                     MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm);
@@ -158,8 +169,15 @@ void EVNode::proccess_neighbor_availability(int source, std::atomic_int *respons
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == source) {
             MPI_Recv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &stat);
-            logger.neighbor_log(rank, msg->neighbor_ranks[i], msg->neighbor_avail_ports[i]);
             ++(*responsed);
+
+            time_t t= time(nullptr);
+            std::string now = ctime(&t);
+            now.pop_back();
+            std::string info = now + "NEIGHBOR_AVAIL_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
+                + ")\'s neighbor (" + std::to_string(msg->neighbor_coords[i][0]) + ", " + std::to_string(msg->neighbor_coords[i][1])
+                + ")\'s availability is " + std::to_string(msg->neighbor_avail_ports[i]);
+            logger.print_log(info);
             break;
         }
     }
@@ -177,7 +195,7 @@ void EVNode::proccess_neighbor_availability(int source, std::atomic_int *respons
  * determine if a alert report should be prompted to the base station, 
  * if there are available ports then they are stored in the parameter avail_neighbor.
 */
-bool EVNode::alert_or_not(EVNodeMessage* msg) {
+bool EVNode::alert_or_not(EVNodeMesg* msg) {
     bool is_prompt = true;
 
     for (int i = 0; i < 4; i++) {
@@ -190,16 +208,18 @@ bool EVNode::alert_or_not(EVNodeMessage* msg) {
     return is_prompt;
 }
 
-void EVNode::send_alert(int base_station_rank) 
+void EVNode::send_alert(int bs_rank) 
 {   
-    // single to single communication
-    EVNodeMessage alert_msg = *msg;
-    // MPI_Request req;
-    logger.alert_log(rank);
-    // alert time
+    EVNodeMesg alert_msg = *msg;
+
     alert_msg.alert_time = time(nullptr);;
-    // MPI_Isend(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD, &req);
-    MPI_Send(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
+
+    MPI_Send(&alert_msg, 1, EV_msg_type, bs_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
+
+    std::string now = ctime(&alert_msg.alert_time);
+    now.pop_back();
+    std::string info = now + ", ALERT_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y) + ") starts to alert";
+    logger.print_log(info);
 }
 
 void EVNode::receive_message()
@@ -237,23 +257,39 @@ void EVNode::receive_message()
  * Listening for a termination message from the base station,
  * once the node receives a termination message, the node cleans up and exits.
  */
-void EVNode::process_terminate(int base_station_rank) {
+void EVNode::process_terminate(int bs_rank) {
     char buf;
     MPI_Status status;
 
     MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
-    logger.terminate_log(rank);
+
+    time_t t= time(nullptr);
+    std::string now = ctime(&t);
+    now.pop_back();
+    std::string info = now + ", TERMINATE_INFO: EVNode (" + std::to_string(x) + ", " 
+        + std::to_string(y) + " terminates";
+    logger.print_log(info);
     stop = 1;
 }
 
 /**
  * Listening for nearby nodes from the base station after the EVnode aberts
 */
-void EVNode::process_nearby(int base_station_rank)
+void EVNode::process_nearby(int bs_rank)
 {
     int nearby_rank;
     MPI_Status stat;
-    MPI_Recv(&nearby_rank, 1, MPI_INT, base_station_rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD, &stat);
+    MPI_Recv(&nearby_rank, 1, MPI_INT, bs_rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD, &stat);
     
-    logger.nearby_log(rank, nearby_rank);
+    std::string info;
+    time_t t= time(nullptr);
+    std::string now = ctime(&t);
+    now.pop_back();
+    if (nearby_rank == MPI_PROC_NULL)
+        info = now + ", NEARBY_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
+            + ") doesnot have available nearby EVnode";
+    else 
+        info = now + ", NEARBY_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
+            + ") has available nearby EVnode rank " + std::to_string(nearby_rank);
+    logger.print_log(info);
 }

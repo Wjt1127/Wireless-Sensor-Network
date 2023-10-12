@@ -36,31 +36,31 @@ private:
     int y;
     int rank;
     int ports_num = 5;
-    int consider_full = 1;
+    int full_threshold = 1;
     std::vector<int> ports_avail;
     std::deque<AvailabilityLog> avail_table;
     MPI_Comm EV_comm;
     MPI_Comm grid_comm;
     MPI_Datatype EV_msg_type;
-    EVNodeMessage *msg;
+    EVNodeMesg *msg;
     std::atomic_int full_log_num;
     std::atomic_int stop;
-    EVLogger logger;
+    MPILogger logger;
     
     void init_neighbors();
     void init_ports();
 
     void port_simulation(int port_id);
     void send_prompt();
-    void send_alert(int base_station_rank);
+    void send_alert(int bs_rank);
     
     void receive_message();
     void proccess_prompt(int source);
     void proccess_neighbor_availability(int source, std::atomic_int *responsed);
-    void process_terminate(int base_station_rank);
-    void process_nearby(int base_station_rank);
+    void process_terminate(int bs_rank);
+    void process_nearby(int bs_rank);
 
-    bool alert_or_not(EVNodeMessage* msg);
+    bool alert_or_not(EVNodeMesg* msg);
 
 };
 

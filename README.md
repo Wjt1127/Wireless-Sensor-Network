@@ -14,7 +14,7 @@ and ***X*** is number of rows of the grid and ***Y*** is the number of columns, 
 
 ```bash
 make all
-mpiexec -n 21 ./test 4 5 50 10
+mpiexec -n 21 ./sim_proc 4 5 50 10
 ```
 ## Base Station Log
 ```

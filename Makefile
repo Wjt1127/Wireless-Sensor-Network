@@ -2,7 +2,7 @@ CC = mpic++
 FLAGS = -Wall -O0 -g
 LIBS = -pthread
 SOURCE = *.cpp *.h
-TARGET = test
+TARGET = sim_proc
 
 all : $(SOURCE)
 	$(CC) $(FLAGS) $^ -o $(TARGET) $(LIBS)

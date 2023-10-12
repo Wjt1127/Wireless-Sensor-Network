@@ -15,7 +15,7 @@ typedef struct {
     int neighbor_avail_ports[4]; // the available port num of neighbor ports
 
     time_t alert_time;        // when the event occured
-} EVNodeMessage;
+} EVNodeMesg;
 
 class MPIHelper
 {
@@ -25,13 +25,13 @@ public:
         int num_of_fields = 7;
         int block_lengths[7] = {1, 1, 1, 4, 4 * 2, 4, 1};
         MPI_Aint displacements[7];
-        displacements[0] = offsetof(EVNodeMessage, rank);
-        displacements[1] = offsetof(EVNodeMessage, avail_ports);
-        displacements[2] = offsetof(EVNodeMessage, matching_neighbours);
-        displacements[3] = offsetof(EVNodeMessage, neighbor_ranks);
-        displacements[4] = offsetof(EVNodeMessage, neighbor_coords);
-        displacements[5] = offsetof(EVNodeMessage, neighbor_avail_ports);
-        displacements[6] = offsetof(EVNodeMessage, alert_time);
+        displacements[0] = offsetof(EVNodeMesg, rank);
+        displacements[1] = offsetof(EVNodeMesg, avail_ports);
+        displacements[2] = offsetof(EVNodeMesg, matching_neighbours);
+        displacements[3] = offsetof(EVNodeMesg, neighbor_ranks);
+        displacements[4] = offsetof(EVNodeMesg, neighbor_coords);
+        displacements[5] = offsetof(EVNodeMesg, neighbor_avail_ports);
+        displacements[6] = offsetof(EVNodeMesg, alert_time);
         
         MPI_Datatype datatypes[7] = {
             MPI_INT,           MPI_INT,           MPI_INT,          MPI_INT,

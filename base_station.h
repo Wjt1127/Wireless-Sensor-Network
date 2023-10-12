@@ -19,8 +19,10 @@
 #include "mpi_helper.h"
 #include "ring_queue_helper.h"
 
+#define BS_LOG_FILE "./logs/bstation.log"
+
 typedef struct {
-    EVNodeMessage msg;
+    EVNodeMesg msg;
     timeval log_t;
     int log_iteration;
 } BS_log;
@@ -28,38 +30,38 @@ typedef struct {
 class BStation {
 public:
     BStation() = default;
-    BStation(unsigned int _iteration_interval, unsigned int iterations_num, int _row, int _col);
-    ~BStation();
+    BStation(unsigned int _iteration_interval, unsigned int total_iter, int _row, int _col);
 
 private:
-    unsigned int iteration_interval;    // interval time of a iteration (s)
-    unsigned int iterations_num;        // the num of iterations
-    std::atomic<unsigned int> cur_iteration;         // iteration-thread updates cur_iteration
-    int Base_station_rank;
+    /* interval time of a iteration (s) */
+    unsigned int iteration_interval;
+    /* total num of iterations to simulate */
+    unsigned int total_iter; 
+    // current iteration */
+    std::atomic_uint now_iter;
+    int bs_rank;
     int row;
     int col;
-    int alert_events = 0;                   // alert events happen in a term
-    std::atomic<int> iprobe_count;
-    int consider_full = 1;
-
-    std::unordered_map<long long, bool> send_alert;      // {rank, iteration} -> send alert
-    CircularQueue<BS_log> alert_msgs;   // store alert messages and log time in an iteration 
+    /* alert events happen in a term */
+    int alert_events = 0;
+    int full_threshold = 1;
+    /* hashmap : (rank, iteration) -> send alert */
+    std::unordered_map<long long, bool> send_alert;
+    MPILogger logger;
     FILE* log_fp;
     MPI_Datatype EV_msg_type;
-    const char* LOG_FILE = "./logs/bstation.log";
 
-    void process_alert_report();
-    void listen_report_from_WSN(int *alert_events);
-    void get_available_EVNodes(EVNodeMessage* msg, int *node_list, int *num_of_list, int cur_iter);
+    void process_alert(BS_log &alert);
+    void listen_alert(int *alert_events);
+    void get_available_EVNodes(EVNodeMesg* msg, int *node_list, int *num_of_list, int cur_iter);
     void send_ternimate_signal();
 
     void iteration_recorder();
     void get_neighbor_coord_from_rank(int rank, int adjacent_coords[][2]);
     void get_neighbor_rank(int rank, int *adjacent_rank);
     
-    void do_alert_log(EVNodeMessage* msg, timeval log_time, int *nearby_avail_nodes, int num_of_avail, int cur_iteration);
-    void print_log(std::string info);
-    bool check_last_3iter(int rank, int iter);
+    void do_alert_log(EVNodeMesg* msg, timeval log_time, int *nearby_avail_nodes, int num_of_avail, int now_iter);
+    bool check_evnode_avail(int rank, int iter);
 };
 
 
