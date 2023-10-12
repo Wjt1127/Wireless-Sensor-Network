@@ -14,7 +14,7 @@
 #include <vector>
 #include <deque>
 
-#include "wireless_sensor.h"
+#include "ev_node.h"
 #include "ring_queue_helper.h"
 
 typedef struct {

@@ -5,7 +5,7 @@
 #include <sched.h>
 #include <stdlib.h>
 #include "base_station.h"
-#include "wireless_sensor.h"
+#include "ev_node.h"
 
 
 int main(int argc, char *argv[]) {
@@ -27,15 +27,11 @@ int main(int argc, char *argv[]) {
 
     if (world_rank == numprocs - 1) {
         // start a base station
-        printf("rank is %d\t\tpid is %d\n", world_rank, getpid());
-        // sleep(15);
         BStation base_station(iter_interval, iter_num, row, col);
     }
     else {
         // start a sensor
-        printf("rank is %d\t\tpid is %d\n", world_rank, getpid());
-        // sleep(15);
-        WirelessSensor WirelessSensor(row, col, world_rank / col, world_rank % col, world_rank, EV_comm);
+        EVNode ev_node(row, col, world_rank / col, world_rank % col, world_rank, EV_comm);
     }
     
     MPI_Comm_free(&EV_comm);
