@@ -17,7 +17,7 @@
 
 #include "base_station.h"
 #include "types.h"
-#include "wireless_sensor.h"
+#include "ev_node.h"
 #include "mpi_helper.h"
 
 BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_num, int _row, int _col) : 

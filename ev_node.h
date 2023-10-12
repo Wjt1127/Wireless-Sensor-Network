@@ -11,8 +11,6 @@
 #include <deque>
 #include <vector>
 
-
-
 #define MAX_DATA_LENGTH 1024
 #define AVAILABILITY_TIME_CYCLE 10
 #define FIXED_ARRAY_SIZE 512
@@ -100,39 +98,21 @@ typedef struct {
     int neighbor_coords[4][2]; // 2-dims coordinations of neighbour
     int neighbor_avail_ports[4]; // the available port num of neighbor ports
 
-    long alert_time_s;          // when the event occured (s)
-    long alert_time_us;         // us
+    time_t alert_time;        // when the event occured
 } EVNodeMessage;
-
-struct TimeStamp
-{
-    unsigned short year;
-    unsigned char month;
-    unsigned char day;
-    unsigned char hour;
-    unsigned char minute;
-    unsigned char second;
-};
 
 struct AvailabilityLog
 {
-    TimeStamp time;
+    time_t timestamp;
     unsigned int availability;
-    friend std::istream& operator>>(std::istream &in, AvailabilityLog &log)
-    {
-        in >> log.time.year >> log.time.month >> log.time.day;
-        in >> log.time.hour >> log.time.minute >> log.time.second;
-        in >> log.availability;
-        return in;
-    }
 };
 
-class WirelessSensor
+class EVNode
 {
 public:
-    WirelessSensor() = delete;
-    WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm);
-    ~WirelessSensor();
+    EVNode() = delete;
+    EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm);
+    ~EVNode();
 
 private:
     int row;
@@ -152,24 +132,20 @@ private:
     std::atomic_int stop;
     EVLogger logger;
     
-    void get_neighbors();
+    void init_neighbors();
     void init_ports();
-    void compose_alert_message(EVNodeMessage *msg);
-    void send_alert_to_base(int base_station_rank);
-    void get_message_from_neighbor(EVNodeMessage *msg);
-    void process_neighbor_message();
-    void listen_message();
-    void listen_terminal_from_base(int base_station_rank); 
-    void listen_nearby_from_base(int base_station_rank);
 
     void port_simulation(int port_id);
-    void report_availability();
-    void prompt_availability();
-    void response_availability(int source);
-    void listen_availability_from_neighbor(int source, std::atomic_int *responsed);
+    void send_prompt();
+    void send_alert(int base_station_rank);
+    
+    void receive_message();
+    void proccess_prompt(int source);
+    void proccess_neighbor_availability(int source, std::atomic_int *responsed);
+    void process_terminate(int base_station_rank);
+    void process_nearby(int base_station_rank);
 
-    bool prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int* num_of_avail_neighbor);
-    bool prompt_alert_or_not(EVNodeMessage* msg);
+    bool alert_or_not(EVNodeMessage* msg);
 
 };
 

@@ -12,29 +12,28 @@
 #include <thread>
 #include <ctime>
 
-#include "wireless_sensor.h"
+#include "ev_node.h"
 #include "types.h"
 #include "mpi_helper.h"
 
 
-WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
+EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
     row(r_), col(c_), x(x_), y(y_), rank(rank_), EV_comm(ev_comm),
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
     msg = new EVNodeMessage;
     msg->rank = rank_;
-    this->get_neighbors();
+    this->init_neighbors();
     this->init_ports();
     this->full_log_num = 0;
     MPIHelper::create_EV_message_type(&EV_msg_type);
     stop = 0;
 
-    // std::thread report_thread(&WirelessSensor::report_availability, this);
-    std::thread prompt_thread(&WirelessSensor::prompt_availability, this);
-    std::thread listen_thread(&WirelessSensor::listen_message, this);
+    std::thread prompt_thread(&EVNode::send_prompt, this);
+    std::thread listen_thread(&EVNode::receive_message, this);
     std::thread port_threads[ports_num];
     for (int i = 0; i < ports_num; i++) {
-        port_threads[i] = std::thread(&WirelessSensor::port_simulation, this, i);
+        port_threads[i] = std::thread(&EVNode::port_simulation, this, i);
     }
 
     // report_thread.join();
@@ -45,14 +44,14 @@ WirelessSensor::WirelessSensor(int r_, int c_, int x_, int y_, int rank_, MPI_Co
     }
 }
 
-WirelessSensor::~WirelessSensor()
+EVNode::~EVNode()
 {
     delete msg;
     MPI_Type_free(&EV_msg_type);
     MPI_Comm_free(&grid_comm);
 }
 
-void WirelessSensor::get_neighbors()
+void EVNode::init_neighbors()
 {
     int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
     int periods[2] = {0, 0};
@@ -74,46 +73,34 @@ void WirelessSensor::get_neighbors()
     }
 }
 
-void WirelessSensor::init_ports()
+void EVNode::init_ports()
 {
     ports_avail.resize(ports_num);
     std::fill(ports_avail.begin(), ports_avail.end(), true);
 }
 
-
 /**
  *  periodically updates and report the availability of node to shared array
 */
-void WirelessSensor::port_simulation(int port_id)
+void EVNode::port_simulation(int port_id)
 {
     AvailabilityLog log_entry;
-    time_t now;
-    tm* ltm;
-    char* ctm;
     int avail;
 
     // stagger different mpi processes
     srand(getpid());
     while (!stop) {
-        if (port_id == ports_num - 1) {
-            now = time(nullptr);
-            ltm = localtime(&now);
-            ctm = ctime(&now);
+        if (port_id == 0) {
+            log_entry.timestamp = time(nullptr);
             avail = std::count_if(ports_avail.begin(), ports_avail.end(), [](bool i){return i;});
-            log_entry.time.year = ltm->tm_year;
-            log_entry.time.month = ltm->tm_mon;
-            log_entry.time.day = ltm->tm_mday;
-            log_entry.time.minute = ltm->tm_min;
-            log_entry.time.second = ltm->tm_sec;
             log_entry.availability = avail;
-
-            while (avail_table.size() >= FIXED_ARRAY_SIZE) 
+            if (avail_table.size() >= FIXED_ARRAY_SIZE)
             {
                 avail_table.pop_front();
             }
             avail_table.push_back(log_entry);
 
-            logger.avail_log(rank, ctm, avail);
+            logger.avail_log(rank, ctime(&log_entry.timestamp), avail);
 
             if (avail <= consider_full) 
             {
@@ -127,56 +114,26 @@ void WirelessSensor::port_simulation(int port_id)
     }
 }
 
-void WirelessSensor::report_availability()
-{
-    AvailabilityLog log_entry;
-    time_t now;
-    tm* ltm;
-    char* ctm;
-    int avail;
-    
-    while (!stop) {
-        now = time(nullptr);
-        ltm = localtime(&now);
-        ctm = ctime(&now);
-        avail = std::count_if(ports_avail.begin(), ports_avail.end(), [](bool i){return i;});
-        log_entry.time.year = ltm->tm_year;
-        log_entry.time.month = ltm->tm_mon;
-        log_entry.time.day = ltm->tm_mday;
-        log_entry.time.minute = ltm->tm_min;
-        log_entry.time.second = ltm->tm_sec;
-        log_entry.availability = avail;
-
-        while (avail_table.size() >= FIXED_ARRAY_SIZE) 
-        {
-            avail_table.pop_front();
-        }
-        avail_table.push_back(log_entry);
-
-        logger.avail_log(rank, ctm, avail);
-
-        if (avail == 0) 
-        {
-            ++full_log_num;
-        }
-
-        sleep(AVAILABILITY_TIME_CYCLE);
-    }
-}
-
 /**
  * If all ports (or almost all ports) are in full use, 
  * the node will prompt for neighbour node data.
 */
-void WirelessSensor::prompt_availability()
+void EVNode::send_prompt()
 {
+    unsigned int avail;
+
     while (!stop)
     {
         if (full_log_num > 0)
         {
             --full_log_num;
             logger.prompt_log(rank);
-            get_message_from_neighbor(msg);
+            avail = 0;
+            for (int i = 0; i < 4; i++) {
+                if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
+                    MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm);
+                }
+            }
         }
     }
 }
@@ -184,7 +141,7 @@ void WirelessSensor::prompt_availability()
 /**
  *  if any recv_req is finished, send avail message to that source EVnode
 */
-void WirelessSensor::response_availability(int source)
+void EVNode::proccess_prompt(int source)
 {
     MPI_Status stat;
     unsigned int my_avail;
@@ -206,7 +163,7 @@ void WirelessSensor::response_availability(int source)
                 
 }
 
-void WirelessSensor::listen_availability_from_neighbor(int source, std::atomic_int *responsed)
+void EVNode::proccess_neighbor_availability(int source, std::atomic_int *responsed)
 {
     MPI_Status stat;
 
@@ -219,9 +176,9 @@ void WirelessSensor::listen_availability_from_neighbor(int source, std::atomic_i
         }
     }
     if ((*responsed) == msg->matching_neighbours) {
-        bool to_alert = prompt_alert_or_not(msg);
-        if (to_alert) {
-            send_alert_to_base(row * col);
+        bool is_alert = alert_or_not(msg);
+        if (is_alert) {
+            send_alert(row * col);
         }
         (*responsed) = 0;
     }
@@ -232,49 +189,20 @@ void WirelessSensor::listen_availability_from_neighbor(int source, std::atomic_i
  * determine if a alert report should be prompted to the base station, 
  * if there are available ports then they are stored in the parameter avail_neighbor.
 */
-bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg, int avail_neighbor[], int* num_of_avail_neighbor) {
-    bool isprompt = true;
-    *num_of_avail_neighbor = 0;
+bool EVNode::alert_or_not(EVNodeMessage* msg) {
+    bool is_prompt = true;
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
-        avail_neighbor[(*num_of_avail_neighbor)++] = msg->neighbor_ranks[i];
-        if (msg->neighbor_avail_ports[i] > consider_full) {
-            isprompt = false;
+        if (msg->neighbor_avail_ports[i] > 0) {
+            is_prompt = false;
         }
     }
 
-    return isprompt;
+    return is_prompt;
 }
 
-bool WirelessSensor::prompt_alert_or_not(EVNodeMessage* msg) {
-    bool isprompt = true;
-
-    for (int i = 0; i < 4; i++) {
-        if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
-        if (msg->neighbor_avail_ports[i] > consider_full) {
-            isprompt = false;
-        }
-    }
-
-    return isprompt;
-}
-
-/**
- * The node prompt for neighbor node data (top, bottom, right and left in 2-dims Cart),
- * neighbor nodes send data stored in msg.
- */
-void WirelessSensor::get_message_from_neighbor(EVNodeMessage *msg) {
-    unsigned int avail = 0;
-
-    for (int i = 0; i < 4; i++) {
-        if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-            MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm);
-        }
-    }
-}
-
-void WirelessSensor::send_alert_to_base(int base_station_rank) 
+void EVNode::send_alert(int base_station_rank) 
 {   
     // single to single communication
     EVNodeMessage alert_msg = *msg;
@@ -288,7 +216,7 @@ void WirelessSensor::send_alert_to_base(int base_station_rank)
     MPI_Send(&alert_msg, 1, EV_msg_type, base_station_rank, ALERT_MESSAGE, MPI_COMM_WORLD);
 }
 
-void WirelessSensor::listen_message()
+void EVNode::receive_message()
 {
     int base_station = row * col;
     int flag;
@@ -300,20 +228,20 @@ void WirelessSensor::listen_message()
         MPI_Iprobe(base_station, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
         if (flag) {
             if (stat.MPI_TAG == TERMINATE) {
-                listen_terminal_from_base(base_station);
+                process_terminate(base_station);
             }
             else if (stat.MPI_TAG == NEARBY_AVAIL_MESSAGE) {
-                listen_nearby_from_base(base_station);
+                process_nearby(base_station);
             }
         }
 
         MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, grid_comm, &flag, &stat);
         if (flag) {
             if (stat.MPI_TAG == PROMPT_NEIGHBOR_MESSAGE) {
-                response_availability(stat.MPI_SOURCE);
+                proccess_prompt(stat.MPI_SOURCE);
             }
             else if (stat.MPI_TAG == AVAIL_MESSAGE) {
-                listen_availability_from_neighbor(stat.MPI_SOURCE, &responsed);
+                proccess_neighbor_availability(stat.MPI_SOURCE, &responsed);
             }
         }
     }
@@ -323,20 +251,19 @@ void WirelessSensor::listen_message()
  * Listening for a termination message from the base station,
  * once the node receives a termination message, the node cleans up and exits.
  */
-void WirelessSensor::listen_terminal_from_base(int base_station_rank) {
+void EVNode::process_terminate(int base_station_rank) {
     char buf;
     MPI_Status status;
 
     MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
     logger.terminate_log(rank);
-    printf("stop\n");
     stop = 1;
 }
 
 /**
  * Listening for nearby nodes from the base station after the EVnode aberts
 */
-void WirelessSensor::listen_nearby_from_base(int base_station_rank)
+void EVNode::process_nearby(int base_station_rank)
 {
     int nearby_rank;
     MPI_Status stat;
