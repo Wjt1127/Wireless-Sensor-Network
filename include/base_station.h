@@ -17,7 +17,6 @@
 
 #include "ev_node.h"
 #include "mpi_helper.h"
-#include "ring_queue_helper.h"
 
 #define BS_LOG_FILE "./logs/bstation.log"
 

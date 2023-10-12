@@ -1,10 +1,11 @@
 CC = mpic++
 FLAGS = -Wall -O0 -g
 LIBS = -pthread
-SOURCE = *.cpp *.h
+INCLUDES = -I ./include
+SOURCE = src/*.cpp
 TARGET = sim_proc
 
 all : $(SOURCE)
-	$(CC) $(FLAGS) $^ -o $(TARGET) $(LIBS)
+	$(CC) $(INCLUDES) $(FLAGS) $^ -o $(TARGET) $(LIBS)
 clean : 
 	rm $(TARGET) -rf
