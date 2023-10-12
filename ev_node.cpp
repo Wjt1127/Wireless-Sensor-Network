@@ -1,20 +1,8 @@
 #include <algorithm>
-#include <bits/types/time_t.h>
-#include <sys/time.h>
-#include <mpi.h>
-#include <fstream>
-#include <iostream>
-#include <mpi_proto.h>
-#include <ratio>
-#include <string>
 #include <unistd.h>
-#include<stdlib.h>
 #include <thread>
-#include <ctime>
 
 #include "ev_node.h"
-#include "types.h"
-#include "mpi_helper.h"
 
 
 EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):

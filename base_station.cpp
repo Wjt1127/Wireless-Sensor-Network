@@ -1,9 +1,4 @@
-#include <bits/types/time_t.h>
 #include <cstddef>
-#include <cstdio>
-#include <mpi.h>
-#include <mpi_proto.h>
-#include <string>
 #include <sys/time.h>
 #include <thread>
 #include <time.h>
@@ -13,12 +8,8 @@
 #include <ifaddrs.h>
 #include <netpacket/packet.h>
 #include <linux/if.h>
-#include <vector>
 
 #include "base_station.h"
-#include "types.h"
-#include "ev_node.h"
-#include "mpi_helper.h"
 
 BStation::BStation(unsigned int _iteration_interval, unsigned int _iterations_num, int _row, int _col) : 
     iteration_interval(_iteration_interval), iterations_num(_iterations_num), row(_row), col(_col) {

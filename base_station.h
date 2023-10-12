@@ -1,22 +1,22 @@
 #ifndef BASE_STATION_H
 #define BASE_STATION_H
 
-#include <bits/types/time_t.h>
 #include <math.h>
-#include <atomic>
 #include <mpi.h>
-#include <mutex>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstring>
 #include <sys/stat.h>
 #include <time.h>
+
+#include <atomic>
 #include <vector>
 #include <deque>
 #include <set>
 #include <unordered_map>
+#include <mutex>
 
 #include "ev_node.h"
+#include "mpi_helper.h"
 #include "ring_queue_helper.h"
 
 typedef struct {
@@ -46,7 +46,7 @@ private:
     CircularQueue<BS_log> alert_msgs;   // store alert messages and log time in an iteration 
     FILE* log_fp;
     MPI_Datatype EV_msg_type;
-    const char* LOG_FILE = "./logs/base_station.log";
+    const char* LOG_FILE = "./logs/bstation.log";
 
     void process_alert_report();
     void listen_report_from_WSN(int *alert_events);
