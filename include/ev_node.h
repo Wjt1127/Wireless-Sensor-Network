@@ -14,7 +14,7 @@
 #define MAX_DATA_LENGTH 1024
 #define AVAILABILITY_TIME_CYCLE 10
 #define FIXED_ARRAY_SIZE 512
-#define LOG_PATH_PREFIX "./logs/evnode"
+#define LOG_PATH_PREFIX "./ev_log/evnode"
 
 struct AvailabilityLog
 {

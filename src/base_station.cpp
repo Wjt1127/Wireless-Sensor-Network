@@ -133,7 +133,7 @@ bool BStation::check_evnode_avail(int rank, int iter) {
 }
 
 void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avail_nodes, int num_of_avail, int cur_iter) {
-    std::string divider(50, '-');
+    std::string divider(90, '-');
     logger.writeback_log(divider);
 
     std::string info = "Iteration : " + std::to_string(cur_iter);

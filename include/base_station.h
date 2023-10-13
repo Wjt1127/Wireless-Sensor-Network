@@ -18,7 +18,7 @@
 #include "ev_node.h"
 #include "mpi_helper.h"
 
-#define BS_LOG_FILE "./logs/bstation.log"
+#define BS_LOG_FILE "./bs_log/bstation.log"
 
 typedef struct {
     EVNodeMesg msg;

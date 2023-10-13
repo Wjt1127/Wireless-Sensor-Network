@@ -1,5 +1,6 @@
 test
-logs/*
+bs_log/*
+ev_log/*
 .out
 *.mpiP
 .vscode
