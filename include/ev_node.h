@@ -39,8 +39,8 @@ private:
     int full_threshold = 1;
     std::vector<int> ports_avail;
     std::deque<AvailabilityLog> avail_table;
-    MPI_Comm EV_comm;
-    MPI_Comm grid_comm;
+    MPI_Comm ev_comm;
+    MPI_Comm cart_comm;
     MPI_Datatype EV_msg_type;
     EVNodeMesg *msg;
     std::atomic_int full_log_num;

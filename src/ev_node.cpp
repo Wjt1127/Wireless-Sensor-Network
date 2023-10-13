@@ -6,7 +6,7 @@
 
 
 EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
-    row(r_), col(c_), x(x_), y(y_), rank(rank_), EV_comm(ev_comm),
+    row(r_), col(c_), x(x_), y(y_), rank(rank_), ev_comm(ev_comm),
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
     msg = new EVNodeMesg;
@@ -24,7 +24,6 @@ EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
         port_threads[i] = std::thread(&EVNode::port_simulation, this, i);
     }
 
-    // report_thread.join();
     prompt_thread.join();
     listen_thread.join();
     for (int i = 0; i < ports_num; i++) {
@@ -36,27 +35,25 @@ EVNode::~EVNode()
 {
     delete msg;
     MPI_Type_free(&EV_msg_type);
-    MPI_Comm_free(&grid_comm);
+    MPI_Comm_free(&cart_comm);
 }
 
 void EVNode::init_neighbors()
 {
     int dimension_sizes[2] = {row, col};    // 2-dim grid of Cart
     int periods[2] = {0, 0};
-    MPI_Cart_create(EV_comm, 2, dimension_sizes, periods, 1, &grid_comm);
-    /* get ranks of neighbours */
-    /* get rank of top, bottom */
-    MPI_Cart_shift(grid_comm, 0, 1, &msg->neighbor_ranks[0], &msg->neighbor_ranks[1]);
-    /* get rank of left, right */
-    MPI_Cart_shift(grid_comm, 1, 1, &msg->neighbor_ranks[2], &msg->neighbor_ranks[3]);
+
+    MPI_Cart_create(ev_comm, 2, dimension_sizes, periods, 1, &cart_comm);
+    MPI_Cart_shift(cart_comm, 0, 1, &msg->neighbor_ranks[0], &msg->neighbor_ranks[1]);
+    MPI_Cart_shift(cart_comm, 1, 1, &msg->neighbor_ranks[2], &msg->neighbor_ranks[3]);
     
-    msg->matching_neighbours = 0;
+    msg->neighbor_num = 0;
     /* get coordinations of neighbors */
     for (int i = 0; i < 4; ++i) {
         // avoid corner case
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-            msg->matching_neighbours++;
-            MPI_Cart_coords(grid_comm, msg->neighbor_ranks[i], 2, msg->neighbor_coords[i]);
+            msg->neighbor_num++;
+            MPI_Cart_coords(cart_comm, msg->neighbor_ranks[i], 2, msg->neighbor_coords[i]);
         }
     }
 }
@@ -130,7 +127,7 @@ void EVNode::send_prompt()
             
             for (int i = 0; i < 4; i++) {
                 if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
-                    MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_NEIGHBOR_MESSAGE, grid_comm);
+                    MPI_Send(&avail, 1, MPI_UNSIGNED, msg->neighbor_ranks[i], PROMPT_MESSAGE, cart_comm);
                 }
             }
         }
@@ -146,7 +143,7 @@ void EVNode::proccess_prompt(int source)
     unsigned int my_avail;
     int avail;
     
-    MPI_Recv(&avail, 1, MPI_UNSIGNED, source, PROMPT_NEIGHBOR_MESSAGE, grid_comm, &stat);
+    MPI_Recv(&avail, 1, MPI_UNSIGNED, source, PROMPT_MESSAGE, cart_comm, &stat);
     
     if (avail_table.empty()) {
         my_avail = 0;
@@ -157,7 +154,7 @@ void EVNode::proccess_prompt(int source)
     }
 
     // printf("neighbor %d: avail is %d\n", msg->neighbor_ranks[i], avail);
-    MPI_Send(&my_avail, 1, MPI_UNSIGNED, source, AVAIL_MESSAGE, grid_comm);
+    MPI_Send(&my_avail, 1, MPI_UNSIGNED, source, AVAIL_MESSAGE, cart_comm);
     // printf("neighbor %d: sended prompt to %d\n", msg->neighbor_ranks[i], rank);
                 
 }
@@ -168,7 +165,7 @@ void EVNode::proccess_neighbor_availability(int source, std::atomic_int *respons
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == source) {
-            MPI_Recv(&msg->neighbor_avail_ports[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, grid_comm, &stat);
+            MPI_Recv(&msg->neighbor_availability[i], 1, MPI_UNSIGNED, msg->neighbor_ranks[i], AVAIL_MESSAGE, cart_comm, &stat);
             ++(*responsed);
 
             time_t t= time(nullptr);
@@ -176,12 +173,12 @@ void EVNode::proccess_neighbor_availability(int source, std::atomic_int *respons
             now.pop_back();
             std::string info = now + "NEIGHBOR_AVAIL_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
                 + ")\'s neighbor (" + std::to_string(msg->neighbor_coords[i][0]) + ", " + std::to_string(msg->neighbor_coords[i][1])
-                + ")\'s availability is " + std::to_string(msg->neighbor_avail_ports[i]);
+                + ")\'s availability is " + std::to_string(msg->neighbor_availability[i]);
             logger.print_log(info);
             break;
         }
     }
-    if ((*responsed) == msg->matching_neighbours) {
+    if ((*responsed) == msg->neighbor_num) {
         bool is_alert = alert_or_not(msg);
         if (is_alert) {
             send_alert(row * col);
@@ -200,7 +197,7 @@ bool EVNode::alert_or_not(EVNodeMesg* msg) {
 
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] == MPI_PROC_NULL) continue;
-        if (msg->neighbor_avail_ports[i] > 0) {
+        if (msg->neighbor_availability[i] > 0) {
             is_prompt = false;
         }
     }
@@ -233,17 +230,17 @@ void EVNode::receive_message()
 
         MPI_Iprobe(base_station, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
         if (flag) {
-            if (stat.MPI_TAG == TERMINATE) {
+            if (stat.MPI_TAG == TERMINATE_MESSAGE) {
                 process_terminate(base_station);
             }
-            else if (stat.MPI_TAG == NEARBY_AVAIL_MESSAGE) {
+            else if (stat.MPI_TAG == NEARBY_MESSAGE) {
                 process_nearby(base_station);
             }
         }
 
-        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, grid_comm, &flag, &stat);
+        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, cart_comm, &flag, &stat);
         if (flag) {
-            if (stat.MPI_TAG == PROMPT_NEIGHBOR_MESSAGE) {
+            if (stat.MPI_TAG == PROMPT_MESSAGE) {
                 proccess_prompt(stat.MPI_SOURCE);
             }
             else if (stat.MPI_TAG == AVAIL_MESSAGE) {
@@ -261,12 +258,12 @@ void EVNode::process_terminate(int bs_rank) {
     char buf;
     MPI_Status status;
 
-    MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE, MPI_COMM_WORLD, &status);
+    MPI_Recv(&buf, 1, MPI_CHAR, row * col, TERMINATE_MESSAGE, MPI_COMM_WORLD, &status);
 
     time_t t= time(nullptr);
     std::string now = ctime(&t);
     now.pop_back();
-    std::string info = now + ", TERMINATE_INFO: EVNode (" + std::to_string(x) + ", " 
+    std::string info = now + ", TERMINATE_MESSAGE_INFO: EVNode (" + std::to_string(x) + ", " 
         + std::to_string(y) + " terminates";
     logger.print_log(info);
     stop = 1;
@@ -279,7 +276,7 @@ void EVNode::process_nearby(int bs_rank)
 {
     int nearby_rank;
     MPI_Status stat;
-    MPI_Recv(&nearby_rank, 1, MPI_INT, bs_rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD, &stat);
+    MPI_Recv(&nearby_rank, 1, MPI_INT, bs_rank, NEARBY_MESSAGE, MPI_COMM_WORLD, &stat);
     
     std::string info;
     time_t t= time(nullptr);

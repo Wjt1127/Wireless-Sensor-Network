@@ -3,38 +3,29 @@
 #include <thread>
 #include <time.h>
 #include <unistd.h>
-#include <utility>
-#include <arpa/inet.h>
-#include <ifaddrs.h>
-#include <netpacket/packet.h>
-#include <linux/if.h>
 
 #include "base_station.h"
 
-BStation::BStation(unsigned int _iteration_interval, unsigned int _total_iter, int _row, int _col) : 
-    iteration_interval(_iteration_interval), total_iter(_total_iter), row(_row), col(_col), logger(BS_LOG_FILE)
-{
-    
-    now_iter = 0;
-    bs_rank = row * col;
-    alert_events = 0;
-    
+BStation::BStation(unsigned int iteration_interval_, unsigned int total_iter_, int row_, int col_): 
+    row(row_), col(col_), iteration_interval(iteration_interval_), total_iter(total_iter_),
+    now_iter(0), bs_rank(row_ * col_), alert_events(0), logger(BS_LOG_FILE)
+{    
     MPIHelper::create_EV_message_type(&EV_msg_type);
     std::thread listen_thread(&BStation::listen_alert, this, &alert_events);
-    std::thread timer_thread(&BStation::iteration_recorder, this);
+    std::thread timer_thread(&BStation::iteration_timer, this);
 
     listen_thread.join();
     timer_thread.join();
 }
 
-void BStation::iteration_recorder() {
+void BStation::iteration_timer() {
     while (now_iter < total_iter) {
         sleep(iteration_interval);
         now_iter++;
     }
 
     // send ternimate signal to all EVNode
-    send_ternimate_signal();
+    send_ternimate();
 
     MPI_Type_free(&EV_msg_type);
 }
@@ -47,33 +38,31 @@ void BStation::listen_alert(int *alert_events) {
     int flag = 0;
 
     while (now_iter < total_iter) {
-        // check if a EVNode has sent an alert message
+        // check if receive an alert message
         MPI_Iprobe(MPI_ANY_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &flag, &probe_stat);
 
-        while (flag) {
+        if (flag) {
             MPI_Recv(&msg, 1, EV_msg_type, probe_stat.MPI_SOURCE, ALERT_MESSAGE, MPI_COMM_WORLD, &stat);
-            gettimeofday(&recv_time, NULL);    
+            gettimeofday(&recv_time, NULL);
             BS_log alert_log;
             alert_log.msg = msg;
             alert_log.log_t = recv_time;
             alert_log.log_iteration = now_iter;
             process_alert(alert_log);
-            send_alert.emplace(((long long)msg.rank << 32l) | alert_log.log_iteration, true);
             (*alert_events)++;
         }
-        if (!flag) sleep(iteration_interval/10);
     }
 }
 
 /**
  * send ternimate signal to all EVnode
 */
-void BStation::send_ternimate_signal() {
+void BStation::send_ternimate() {
     char buf = '1';
 
     // send message to terminate
     for (int i = 0; i < bs_rank; i++) {
-        MPI_Send(&buf, 1, MPI_CHAR, i, TERMINATE, MPI_COMM_WORLD);
+        MPI_Send(&buf, 1, MPI_CHAR, i, TERMINATE_MESSAGE, MPI_COMM_WORLD);
     }
 }
 
@@ -103,23 +92,6 @@ void BStation::get_available_EVNodes(EVNodeMesg* msg, int *node_list, int *num_o
     }
 }
 
-void BStation::get_neighbor_coord_from_rank(int rank, int adjacent_coords[][2]) {
-    int r = rank / col, c = rank % col;
-    int direction[4][2] = { {1,0}, {0, 1}, {-1, 0}, {0, -1}};
-    for (int i = 0; i < 4; i++) {
-        int next_rank = rank + direction[i][0] * col + direction[i][1];
-        int next_row = r + direction[i][0], next_col = c + direction[i][1];
-        if (next_rank < 0 || next_rank >= bs_rank) {
-            adjacent_coords[i][0] = -1;
-            adjacent_coords[i][0] = -1;
-        }
-        else {
-            adjacent_coords[i][0] = next_row;
-            adjacent_coords[i][1] = next_col;
-        }
-    }
-}
-
 
 void BStation::get_neighbor_rank(int rank, int *adjacent_rank) {
     int r = rank / col, c = rank % col;
@@ -142,44 +114,22 @@ void BStation::process_alert(BS_log &alert) {
 
     get_available_EVNodes(&(alert.msg), nearby_avail_nodes, &num_of_avail, alert.log_iteration);
 
-    MPI_Send(&nearby_avail_nodes[0] , 1 , MPI_INT, alert.msg.rank, NEARBY_AVAIL_MESSAGE, MPI_COMM_WORLD);
+    MPI_Send(&nearby_avail_nodes[0] , 1 , MPI_INT, alert.msg.rank, NEARBY_MESSAGE, MPI_COMM_WORLD);
 
     do_alert_log(&(alert.msg), alert.log_t, nearby_avail_nodes, num_of_avail, alert.log_iteration);
+
+    send_alert.emplace(((long long)alert.msg.rank << 32l) | alert.log_iteration, true);
 };
 
 
 bool BStation::check_evnode_avail(int rank, int iter) {
     if (send_alert.count((((long long)rank << 32l) | iter)) || 
         send_alert.count((((long long)rank << 32l) | (iter - 1))) ||
-        send_alert.count((((long long)rank << 32l) | (iter - 2)))
-        ) {
-            return false;
-        }
-
-    else return true;
-}
-
-void get_device_addresses(unsigned char ip_addr[4]) {
-    struct ifaddrs *ifaddr, *ifa;
-    struct sockaddr_in *ip_a;
-    unsigned char *tmp_ip_addr;
-
-    // get linked list of network interfaces
-    if (getifaddrs(&ifaddr) == -1) return;
-
-    // traverse linked list
-    for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            ip_a = (struct sockaddr_in *)ifa->ifa_addr;
-            tmp_ip_addr = (unsigned char *)&ip_a->sin_addr.s_addr;
-            memcpy(ip_addr, tmp_ip_addr, 4 * sizeof(unsigned char));
-        }
+        send_alert.count((((long long)rank << 32l) | (iter - 2)))) 
+    {
+        return false;
     }
-    freeifaddrs(ifaddr);
-}
-
-void format_ip_addr(unsigned char ip_addr[4], std::string& out_str) {
-    out_str = std::to_string((int)ip_addr[0]) + "." + std::to_string((int)ip_addr[1]) + "." + std::to_string((int)ip_addr[2]) + "." + std::to_string((int)ip_addr[3]);
+    return true;
 }
 
 void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avail_nodes, int num_of_avail, int cur_iter) {
@@ -200,7 +150,7 @@ void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avai
     info = "Alert reported time : \t\t\t" + alert_t;
     logger.writeback_log(info);
 
-    info = "Number of adjacent node : " + std::to_string(msg->matching_neighbours);
+    info = "Number of adjacent node : " + std::to_string(msg->neighbor_num);
     logger.writeback_log(info);
 
     info = "Availability to be considered full : " + std::to_string(full_threshold) + "\n";
@@ -210,9 +160,9 @@ void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avai
     info = "Reporting Node \t Coord \t\t Port Value \t Available Port \t IPv4";
     logger.writeback_log(info);
 
-    get_device_addresses(ip_addr);
+    MPIHelper::get_device_addresses(ip_addr);
     std::string ip;
-    format_ip_addr(ip_addr, ip);
+    MPIHelper::format_ip_addr(ip_addr, ip);
 
     info = std::to_string(msg->rank) + "\t\t\t\t (" + std::to_string(msg->rank / col) + "," + std::to_string(msg->rank % col) + ")" \
             + "\t\t 5\t\t\t\t " + std::to_string(msg->avail_ports) + "\t\t\t\t\t " + ip + "\n";
@@ -225,7 +175,7 @@ void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avai
     for (int i = 0; i < 4; i++) {
         if (msg->neighbor_ranks[i] != MPI_PROC_NULL) {
             neighbor_node = std::to_string(msg->neighbor_ranks[i]) + "\t\t\t\t (" + std::to_string(msg->neighbor_ranks[i] / col) + "," + \
-            std::to_string(msg->neighbor_ranks[i] % col) + ")" + "\t\t 5\t\t\t\t " + std::to_string(msg->neighbor_avail_ports[i]) + "\t\t\t\t\t " + ip;
+            std::to_string(msg->neighbor_ranks[i] % col) + ")" + "\t\t 5\t\t\t\t " + std::to_string(msg->neighbor_availability[i]) + "\t\t\t\t\t " + ip;
             logger.writeback_log(neighbor_node);
         }
     } 
@@ -244,7 +194,7 @@ void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avai
     logger.writeback_log("");
 
 
-    info = "Available station nearby (no report received in last 3 iteration) : ";
+    info = "Available station nearby: ";
     for (int i = 0; i < num_of_avail; i++) {
         if (check_evnode_avail(nearby_avail_nodes[i], cur_iter)) info += std::to_string(nearby_avail_nodes[i]) + ",";
     }

@@ -1,22 +1,25 @@
-## Quick Start
-* To compile, run `make`
+## Compile
+* `make`
 
-* To execute, run `mpirun -np P prog X Y T I`
+## Execute
+* `mpirun -np P prog X Y T I`
 
 Where ***P*** is number of processors, 
 and ***X*** is number of rows of the grid and ***Y*** is the number of columns, and ***X * Y + 1 = P***. 
 
-***T*** is the time of ech iteration.
+***T*** is the time of each iteration.
 
 ***I*** is the number of iterations to run for.
 
-* For example:
+## Test Example
 
+* run example
 ```bash
 make
 mpiexec -n 21 ./sim_proc 4 5 50 10
 ```
-## Base Station Log
+
+* base station log
 ```
 ------------------------------------------------------------------------------------------------------------
 Iteration : 4
@@ -46,24 +49,4 @@ Available station nearby (no report received in last 3 iteration) : 3,7,9,11,17,
 Communication Time (seconds) : 0.000541
 Total Messages send between reporting node and base station: 2
 ------------------------------------------------------------------------------------------------------------
-```
-
-
-## Install MPICH
-```bash
-$ wget https://www.mpich.org/static/downloads/4.1/mpich-4.1.tar.gz
-
-$ tar -zxvf mpich-4.1.tar.gz
-$ cd mpich-4.1/
-
-$ ./configure --disable-fortran --prefix=/usr
-
-$ make -j8
-$ make install
-
-$ sudo vim ~/.bashrc
-
-# add : export  PATH=$PATH:/usr
-
-$ sudo source ~/.bashrc
 ```
