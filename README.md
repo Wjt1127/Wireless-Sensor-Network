@@ -2,16 +2,16 @@
 * `make`
 
 ## Execute
-* `mpirun -np P program X Y T I PN`
+* `mpirun -np N program X Y T IN PN`
 
-Where ***P*** is number of processors, 
-and ***X*** is number of rows of the grid and ***Y*** is the number of columns, and ***X * Y + 1 = P***. 
+Where ***N*** is the number of MPI processors, 
+***X***, ***Y*** is the number of rows and columes of the grid and they have relation of ***N = X * Y + 1***. 
 
-***T*** is the time of each iteration.
+***T*** is the time(s) of each iteration.
 
-***I*** is the number of iterations to run for.
+***IN*** is the number of iterations to run.
 
-***PN*** is the number of each evnode
+***PN*** is the ports number of each evnode
 
 ## Test Example
 
@@ -21,29 +21,71 @@ make
 mpiexec -n 21 ./sim_proc 4 5 50 10 2
 ```
 
+* ev node log
+```
+Fri Oct 13 14:01:38 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 2
+Fri Oct 13 14:01:48 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:01:48 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:01:48 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 2
+Fri Oct 13 14:01:48 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 2
+Fri Oct 13 14:01:48 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 2
+Fri Oct 13 14:01:58 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:01:58 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:01:58 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 2
+Fri Oct 13 14:01:58 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 2
+Fri Oct 13 14:01:58 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 0
+Fri Oct 13 14:02:08 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:02:08 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:02:08 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 0
+Fri Oct 13 14:02:08 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 1
+Fri Oct 13 14:02:08 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 1
+Fri Oct 13 14:02:18 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 2
+Fri Oct 13 14:02:28 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 2
+Fri Oct 13 14:02:38 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:02:38 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:02:38 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 0
+Fri Oct 13 14:02:38 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 1
+Fri Oct 13 14:02:38 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 1
+Fri Oct 13 14:02:48 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:02:48 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:02:48 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 1
+Fri Oct 13 14:02:48 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 1
+Fri Oct 13 14:02:48 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 1
+Fri Oct 13 14:02:58 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 2
+Fri Oct 13 14:03:08 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 0
+Fri Oct 13 14:03:08 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:03:08 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 1
+Fri Oct 13 14:03:08 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 2
+Fri Oct 13 14:03:08 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 0
+Fri Oct 13 14:03:18 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:03:18 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+Fri Oct 13 14:03:18 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (1, 1)'s availability is 0
+Fri Oct 13 14:03:18 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (0, 0)'s availability is 1
+Fri Oct 13 14:03:18 2023, NEIGHBOR_AVAIL_INFO: EVNode (1, 0)'s neighbor (2, 0)'s availability is 1
+Fri Oct 13 14:03:28 2023, AVAILABILITY_INFO: EVNode (1, 0)'s availability is 1
+Fri Oct 13 14:03:28 2023, PROMPT_INFO: EVNode (1, 0) starts to prompt
+```
+
 * base station log
 ```
-Iteration : 1
-Logged time : 					Fri Oct 13 11:37:24 2023
-Alert reported time : 			Fri Oct 13 11:37:24 2023
-Number of adjacent node : 3
+Iteration : 3
+Logging time : 				Fri Oct 13 14:04:08 2023
+Alert reporting time : 		Fri Oct 13 14:04:08 2023
+Number of adjacent node : 2
 Availability to be considered full : 1
 
 Reporting Node 	 Coord 		 Port Value 	 Available Port 	 IPv4
-5				 (1,0)		 5				 0					 192.168.195.189
+19				 (3,4)		 5				 1					 192.168.195.189
 
 Adjacent Nodes 	 Coord 		 Port Value 	 Available Port 	 IPv4
-0				 (0,0)		 5				 0					 192.168.195.189
-10				 (2,0)		 5				 0					 192.168.195.189
-6				 (1,1)		 5				 0					 192.168.195.189
+14				 (2,4)		 5				 0					 192.168.195.189
+18				 (3,3)		 5				 0					 192.168.195.189
 
 Nearby Nodes 	 Coord 	
-1				 (0,1)
-7				 (1,2)
-11				 (2,1)
-15				 (3,0)
+9				 (1,4)
+13				 (2,3)
+17				 (3,2)
 
-Available station nearby: 1,7,11,15
+Available station nearby: 9,13,17
 Total Messages send between reporting node and base station: 2
-
 ```

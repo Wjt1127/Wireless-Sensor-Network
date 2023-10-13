@@ -142,12 +142,12 @@ void BStation::do_alert_log(EVNodeMesg* msg, timeval recv_time, int *nearby_avai
     time_t log_t = time(nullptr);
     std::string time_log = ctime(&log_t);
     time_log.pop_back();
-    info = "Logged time : \t\t\t\t\t" + time_log;
+    info = "Logging time : \t\t\t\t" + time_log;
     logger.writeback_log(info);
 
     std::string alert_t = ctime(&(msg->alert_time));
     alert_t.pop_back();
-    info = "Alert reported time : \t\t\t" + alert_t;
+    info = "Alert reporting time : \t\t" + alert_t;
     logger.writeback_log(info);
 
     info = "Number of adjacent node : " + std::to_string(msg->neighbor_num);

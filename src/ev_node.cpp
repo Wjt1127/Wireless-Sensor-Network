@@ -264,7 +264,7 @@ void EVNode::process_terminate(int bs_rank) {
     std::string now = ctime(&t);
     now.pop_back();
     std::string info = now + ", TERMINATE_MESSAGE_INFO: EVNode (" + std::to_string(x) + ", " 
-        + std::to_string(y) + " terminates";
+        + std::to_string(y) + ") terminates";
     logger.print_log(info);
     stop = 1;
 }
