@@ -2,7 +2,7 @@
 * `make`
 
 ## Execute
-* `mpirun -np P prog X Y T I`
+* `mpirun -np P program X Y T I PN`
 
 Where ***P*** is number of processors, 
 and ***X*** is number of rows of the grid and ***Y*** is the number of columns, and ***X * Y + 1 = P***. 
@@ -10,6 +10,8 @@ and ***X*** is number of rows of the grid and ***Y*** is the number of columns, 
 ***T*** is the time of each iteration.
 
 ***I*** is the number of iterations to run for.
+
+***PN*** is the number of each evnode
 
 ## Test Example
 

@@ -26,7 +26,7 @@ class EVNode
 {
 public:
     EVNode() = delete;
-    EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm);
+    EVNode(int r_, int c_, int x_, int y_, int rank_, int port_num_, MPI_Comm ev_comm);
     ~EVNode();
 
 private:
@@ -35,7 +35,7 @@ private:
     int x;
     int y;
     int rank;
-    int ports_num = 5;
+    int ports_num;
     int full_threshold = 1;
     std::vector<int> ports_avail;
     std::deque<AvailabilityLog> avail_table;

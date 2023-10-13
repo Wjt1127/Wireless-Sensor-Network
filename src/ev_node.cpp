@@ -5,8 +5,8 @@
 #include "ev_node.h"
 
 
-EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, MPI_Comm ev_comm):
-    row(r_), col(c_), x(x_), y(y_), rank(rank_), ev_comm(ev_comm),
+EVNode::EVNode(int r_, int c_, int x_, int y_, int rank_, int port_num_, MPI_Comm ev_comm):
+    row(r_), col(c_), x(x_), y(y_), rank(rank_), ports_num(port_num_), ev_comm(ev_comm),
     logger(LOG_PATH_PREFIX + std::to_string(rank_) + ".log")
 {
     msg = new EVNodeMesg;
@@ -171,7 +171,7 @@ void EVNode::proccess_neighbor_availability(int source, std::atomic_int *respons
             time_t t= time(nullptr);
             std::string now = ctime(&t);
             now.pop_back();
-            std::string info = now + "NEIGHBOR_AVAIL_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
+            std::string info = now + ", NEIGHBOR_AVAIL_INFO: EVNode (" + std::to_string(x) + ", " + std::to_string(y)
                 + ")\'s neighbor (" + std::to_string(msg->neighbor_coords[i][0]) + ", " + std::to_string(msg->neighbor_coords[i][1])
                 + ")\'s availability is " + std::to_string(msg->neighbor_availability[i]);
             logger.print_log(info);
